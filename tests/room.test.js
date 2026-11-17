@@ -597,6 +597,69 @@ test('lobby: toLobby after a game keeps everyone in the room, lets fill-in bots 
   assert.equal(room.toLobby(), false, 'a closed room stays closed');
 });
 
+test('game: room.view is the seat\'s own engine view during a game, and null before one and back in the lobby', () => {
+  const e = env(), { room } = e;
+  room.addLocal('Host');
+  const a = remote(e, 'a', 'Ann'); a.hello();
+  room.configure({ count: 4, mode: 'classic' });
+  assert.equal(room.view(0), null);
+  room.start();
+  room.setPaused(true);
+  const ids = (cards) => cards.map((c) => c.id).sort((x, y) => x - y);
+  for (let i = 0; i < 4; i++) {
+    const v = room.view(i);
+    assert.deepEqual(v, LC.view(room.state, i));
+    assert.deepEqual(ids(v.hand), ids(room.state.players[i].hand), 'a seat sees its own hand');
+    assert.ok(v.players.every((p) => !('hand' in p)), 'and only counts for the others');
+  }
+  assert.deepEqual(a.view, JSON.parse(JSON.stringify(room.view(1))), 'the host screen and the guest see the same view of a seat');
+  room.toLobby();
+  assert.equal(room.view(0), null);
+});
+
+test('game: a bot or reaction timer that fires after a pause, Play again, Back to lobby or close does nothing', () => {
+  const e = env(), { room } = e;
+  room.configure({ count: 4 }); // four bots, so a bot timer is always waiting
+  room.start();
+  const late = () => [...e.timers.values()].map((t) => t.fn); // what a timer would run if clearing it came too late
+  const fire = (fns) => fns.forEach((fn) => fn());
+  let fns = late(), S = room.state, seq = S.seq, upd = e.updates;
+  assert.ok(fns.length > 0);
+  room.setPaused(true);
+  fire(fns);
+  assert.deepEqual([S.seq, e.updates], [seq, upd], 'paused');
+  room.setPaused(false);
+  fns = late(); S = room.state; seq = S.seq;
+  room.restart();
+  const S2 = room.state, seq2 = S2.seq;
+  upd = e.updates;
+  fire(fns);
+  assert.deepEqual([S.seq, S2.seq, e.updates], [seq, seq2, upd], 'Play again: neither game moves');
+  fns = late();
+  room.toLobby();
+  upd = e.updates;
+  fire(fns);
+  assert.deepEqual([room.state, e.updates], [null, upd], 'Back to lobby');
+  room.start();
+  fns = late(); S = room.state; seq = S.seq;
+  room.close();
+  upd = e.updates;
+  fire(fns);
+  assert.deepEqual([S.seq, e.updates], [seq, upd], 'closed');
+});
+
+test('game: a closed room tells nobody about later changes', () => {
+  const e = env(), { room } = e;
+  room.addLocal('Host');
+  remote(e, 'a', 'Ann').hello(); remote(e, 'b', 'Bob').hello();
+  room.close();
+  const sent = () => e.msgs('a').length + e.msgs('b').length;
+  const n = sent(), upd = e.updates;
+  room.configure({ mode: 'flip' }); // both reach the room's change notice, which stays quiet once closed
+  room.disconnect('b');
+  assert.deepEqual([sent(), e.updates], [n, upd]);
+});
+
 test('game: pausing stops bots; unpausing resumes them; close() tells remotes and stops all timers', () => {
   const e = env(), { room } = e;
   const a = remote(e, 'a', 'Ann'), b = remote(e, 'b', 'Bob');
@@ -737,6 +800,34 @@ test('input validation: text limits and message shapes', () => {
   room.connect('c');
   room.receive('c', JSON.stringify(hello));
   assert.equal(room.seats[2].name, 'Mallory');
+});
+
+test('input validation: parseHost keeps only sane host messages, up to 256 KB', () => {
+  const { parseHost } = Room;
+  assert.deepEqual(parseHost('{"t":"view","view":{}}'), { t: 'view', view: {} });
+  const pad = (obj, len) => { const s = JSON.stringify(obj); return s + ' '.repeat(len - s.length); };
+  assert.deepEqual(parseHost(pad({ t: 'lobby' }, 256 * 1024)), { t: 'lobby' }, '256 KB is accepted');
+  assert.equal(parseHost(pad({ t: 'lobby' }, 256 * 1024 + 1)), null, 'one more character is not');
+  for (const bad of [123, null, undefined, {}, ['{"t":"view"}'], true, '', 'null', '123', '"view"', '[]', '{}', '{"t":1}', '{"t":null}', '{"t":"view"', 'not json', '\u0000']) {
+    assert.equal(parseHost(bad), null, JSON.stringify(bad));
+  }
+});
+
+test('input validation: a second hello on a seated connection is ignored', () => {
+  const e = env(), { room } = e;
+  const a = remote(e, 'a', 'Ann'); a.hello();
+  const token = a.token;
+  a.send({ t: 'hello', name: 'Mallory' });
+  a.send({ t: 'hello', name: 'Eve', token: 'f'.repeat(32) });
+  assert.deepEqual(room.seats.map((s) => [s.name, s.token]), [['Ann', token]]);
+  assert.equal(e.msgs('a', 'welcome').length, 1);
+});
+
+test('lobby: players with the same name are told apart as Sam, Sam 2, Sam 3', () => {
+  const e = env(), { room } = e;
+  for (const id of ['a', 'b', 'c']) remote(e, id, 'Sam').hello();
+  room.addLocal('sam');
+  assert.deepEqual(room.seats.map((s) => s.name), ['Sam', 'Sam 2', 'Sam 3', 'sam 4']);
 });
 
 // ---------- fuzz ----------
