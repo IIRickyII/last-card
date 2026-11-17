@@ -1,0 +1,6 @@
+# local tooling output
+graphify-out/
+.graph-indexer/
+.claude/
+.DS_Store
+node_modules/

@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self'; img-src 'self' data:; connect-src 'self' https://0.peerjs.com wss://0.peerjs.com; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#F2F2F7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<title>LAST CARD</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main id="app" class="app"></main>
+<section id="table" class="table" hidden aria-label="Game table">
+  <header id="bar" class="bar"></header>
+  <div id="stage" class="stage">
+    <div class="stage-in">
+      <div id="opps" class="opps" role="group" aria-label="Opponents"></div>
+      <div id="center" class="center"></div>
+      <div id="feed" class="feed" role="log" aria-live="off" aria-label="Recent activity"></div>
+    </div>
+  </div>
+  <footer id="dock" class="dock">
+    <div id="banner" class="banner" role="status" aria-live="polite"></div>
+    <div id="actions" class="actions"></div>
+    <div id="handwrap" class="handwrap"><div id="hand" class="hand" role="group" aria-label="Your hand"></div></div>
+  </footer>
+</section>
+<div id="sheets" class="sheets" hidden></div>
+<div id="cover" class="cover" hidden></div>
+<div id="toasts" class="toasts" aria-live="polite"></div>
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js" integrity="sha256-dgTYwxvsTxNLDRXC2AsdCV6hivAFNU9DnxQpH817QWg=" crossorigin="anonymous"></script>
+<script src="engine.js"></script>
+<script src="room.js"></script>
+<script src="net.js"></script>
+<script src="ui.js"></script>
+</body>
+</html>
