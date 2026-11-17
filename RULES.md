@@ -14,7 +14,7 @@ Sources:
 |---|---|---|
 | Players | 4–8 here. Official: Classic and Flip 2–10, No Mercy 2–6 | E `deck composition` |
 | Hand size | 7 cards each | E `deck composition`, `opening card …` |
-| Who starts | The seat left of the dealer; the deal moves one seat each round | E `rounds: nextRound resets state…` |
+| Who starts | The seat left of the dealer. A random seat starts a room's first game; the deal then moves one seat clockwise each round and carries on into the next game | E `first: …`, `rounds: nextRound resets state…`, R `deal: …`, `lobby: toLobby…` |
 | A legal play | Same color, same number or symbol, or a wild | E `matching: …` |
 | Can't or won't play | Draw 1. If it fits you may play it at once, but no other card (Classic, Flip, Liar) | E `draw: …` |
 | Calling "last card" | Call when you go down to one card. Caught before the next player starts their turn: draw 2 | E `last card: …` |

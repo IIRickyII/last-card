@@ -653,6 +653,27 @@ test('rounds: nextRound resets state, round 2 starts with player 1, scores kept'
   assert.equal(allCards(s).length, 108);
   assert.match(top(s).light.v, /^\d$/);
 });
+test('first: round 1 starts at the given seat and the opening card works from there', () => {
+  const seen = new Set();
+  for (let seed = 1; seed <= 600; seed++) {
+    const n = 4 + (seed % 5), f0 = seed % n, after = (f0 + 1) % n, dealer = (f0 - 1 + n) % n;
+    const s = newGame({ mode: 'classic', players: mkPlayers(n), seed, first: f0 }), f = top(s).light;
+    assert.equal(s.first, f0);
+    if (/^\d$/.test(f.v)) { assert.deepEqual([s.turn, s.dir], [f0, 1]); seen.add('number'); }
+    else if (f.v === 'skip') { assert.deepEqual([s.turn, s.dir], [after, 1]); seen.add('skip'); }
+    else if (f.v === 'rev') { assert.deepEqual([s.turn, s.dir], [dealer, -1]); seen.add('rev'); }
+    else if (f.v === 'd2') { assert.deepEqual([s.turn, s.players[f0].hand.length], [after, 9]); seen.add('d2'); }
+    else if (f.v === 'wild') { assert.deepEqual([s.pending.p, s.turn], [f0, f0]); seen.add('wild'); }
+  }
+  for (const w of ['number', 'skip', 'rev', 'd2', 'wild']) assert.ok(seen.has(w), `opening branch "${w}" was exercised`);
+});
+test('first: each round starts one seat on, round the table; a bad seat falls back to seat 0', () => {
+  const s = newGame({ mode: 'nomercy', players: mkPlayers(5), seed: 9, first: 3, target: 100000 }); // opens on a number
+  const starts = [s.turn];
+  for (let r = 2; r <= 6; r++) { s.phase = 'roundOver'; nextRound(s); starts.push(s.turn); }
+  assert.deepEqual(starts, [3, 4, 0, 1, 2, 3]);
+  for (const first of [-1, 4, 1.5, '2', null, NaN]) assert.equal(newGame({ mode: 'nomercy', players: mkPlayers(4), seed: 3, first }).turn, 0);
+});
 test('scoring: going out on a draw card still makes next draw and counts it', () => {
   const s = setup(game('classic', 4, 3, 500), {
     hands: { 0: [card(1001, 'red', 'd2')], 1: [card(1002, 'blue', '7')], 2: [card(1003, 'blue', '1')], 3: [card(1004, 'blue', '1')] },

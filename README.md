@@ -10,6 +10,9 @@ Play on one device against bots or pass-and-play, or play online with friends. T
 1. One person picks **Host an online game**, enters a name and gets a 6-character room code with an invite link.
 2. Friends open the link, or pick **Join a game** and type the code, from any recent Safari, Chrome, Edge or Firefox, on phone or computer.
 3. The host chooses the mode, target score and number of players, then presses **Start game**. Empty seats are filled with bots.
+4. When a game ends, the host picks **Play again**, **Back to lobby** or **Home**. Back to lobby keeps everyone in the room: the host can change the mode or seats and more friends can join. Home closes the room.
+
+A random seat plays first in a room's first game. After that the first turn moves one seat clockwise every round and carries on into the next game.
 
 Keep the host's page open: the host's browser runs the game. If a friend loses their connection, a bot plays their seat until they open the link again in the same browser tab.
 
