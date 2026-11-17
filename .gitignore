@@ -4,3 +4,5 @@ graphify-out/
 .claude/
 .DS_Store
 node_modules/
+shots/
+.taste-skill/

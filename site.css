@@ -1,0 +1,45 @@
+/* Last Card site: page CSS only for what sits inside a visual (the hero's hand on a phone, the table
+   frame, the room screen, the phone, the last card), the card group's panel height and one colour fix. */
+
+/* hero: the wide hand, and on a phone a hand of three cards that fills the stage instead of a thin strip */
+.hero__stage > .fan-narrow { display: none; }
+@media (max-width: 639px) { .hero__stage > .fan-wide { display: none; } .hero__stage > .fan-narrow { display: block; } }
+
+/* the mode cards: one panel height for the group */
+#modes .panel { --p-h: clamp(180px, 100svh - 600px, 300px); }   /* lower on a short laptop screen */
+#modes .panel img { object-position: 50% 46%; }
+#nomercy .panel img, #liar .panel img { object-position: 50% 80%; }   /* keep Take +4 and Call the bluff in the crop */
+/* a tablet keeps the 2x2 two-up (the kit's rule) and the four cards fit one screen there (the kit's
+   "cut to one screen" for 832-1,130px of content): one screen, one column of rows, landscape panels */
+@media (min-width: 640px) and (max-width: 1023px) {
+  #modes { --h: 1; }
+  #modes > .wrap { display: flex; flex-direction: column; row-gap: var(--s-6); }
+  #modes > .wrap > * { align-self: stretch; }
+  #modes .panel { --p-h: clamp(160px, 50svh - 330px, 260px); }
+}
+/* a phone: the first screen holds the heading and two cards, so its panels are lower; the second
+   screen's two cards take the room it has, so the section keeps one gap to the next */
+@media (max-width: 639px) { #modes .panel { --p-h: 140px; } #modes > .wrap > .grid .panel { --p-h: 250px; } }
+
+/* the table: the eight-seat capture in one frame on the container's lines */
+#table .band { overflow: hidden; border-radius: var(--r-lg); background: #100e0b; box-shadow: 0 0 0 1px var(--line); }
+#table .band img { display: block; width: 100%; height: 100%; max-width: none; object-fit: cover; object-position: 50% 42%; }
+@media (max-width: 639px) { #table .band img { object-position: 50% 18%; } }
+
+/* the statement's line is body copy, so it takes the ink; its scattered letters stay inside their screen */
+#call .mo-la__sub { color: var(--ink); }
+#call.mo-la.is-live { overflow: clip; }
+.lastcard { display: grid; justify-items: end; align-items: start; }
+.lastcard img { display: block; width: min(100%, 330px); height: auto; }
+@media (max-width: 1023px) { .lastcard { justify-items: start; margin-top: var(--s-7); } .lastcard img { width: 200px; } }
+
+/* online: the host's real room screen, as tall as the screen leaves it, cropped from the top */
+.room { min-height: 0; overflow: hidden; border-radius: var(--r-lg); box-shadow: 0 0 0 1px var(--line); }
+.room img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 0; }
+@media (max-width: 1023px) { .room { margin-top: var(--s-6); } }
+
+/* the close: on an upright tablet the four link columns go two by two, so the slab is not half empty */
+@media (min-width: 640px) and (max-width: 1023px) and (orientation: portrait) { .closing__links .footer__col { grid-column: auto / span 6; } }
+
+/* the close: the main action keeps its gold on the lit slab, as it is everywhere else on the page */
+.footer--statement { --action: var(--p-action); --action-ink: var(--p-action-ink); }

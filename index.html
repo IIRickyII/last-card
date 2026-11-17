@@ -1,39 +1,216 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-type="software" data-radius="soft" data-ground="sand" data-buttons="block" data-motion>
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self'; img-src 'self' data:; connect-src 'self' https://0.peerjs.com wss://0.peerjs.com; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-tLacyvDXM7iOBdrKicHZHGDOpIjXw5dTwO25l/lTFaI=' 'sha256-1bYHHe3SE5ji7T/2HhIPPaOd3hoICy83QpaTDL+iRYk='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="color-scheme" content="light dark">
-<meta name="theme-color" content="#F2F2F7" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
-<title>LAST CARD</title>
-<link rel="stylesheet" href="style.css">
+<title>Last Card: a free card game for 4 to 8 players</title>
+<meta name="description" content="Play Classic, Flip, No Mercy or Liar in your browser, against bots or with friends online. No account, nothing to install.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Last Card: a free card game for 4 to 8 players">
+<meta property="og:description" content="Classic, Flip, No Mercy or Liar in your browser, against bots or with friends online.">
+<meta property="og:image" content="https://iirickyii.github.io/last-card/share.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#0c0a08">
+<link rel="canonical" href="https://iirickyii.github.io/last-card/">
+<meta name="site-kind" content="gaming">
+<meta name="page-type" content="software">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..600&family=Martian+Mono:wght@400..500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/system.css">
+<link rel="stylesheet" href="assets/ui/cards.css">
+<link rel="stylesheet" href="assets/motion/motion.css">
+<link rel="stylesheet" href="assets/backgrounds/backgrounds.css">
+<link rel="stylesheet" href="assets/layout/layout.css">
+<link rel="stylesheet" href="assets/icons/icon.css">
+<style>:root { --p-bg:#0c0a08; --p-surface:#181512; --p-ink:#ffffff; --p-muted:#8f8a84; --p-accent:#c9a45a; --p-accent-ink:#0c0a08; --p-action:#c9a45a; --p-action-ink:#0c0a08; --p-inv-bg:#ffffff; --p-inv-surface:#ebebeb; --p-inv-ink:#0c0a08; --p-inv-muted:#5c5b59; --p-inv-accent:#0c0a08; --p-inv-accent-ink:#ffffff; --p-inv-action:#0c0a08; --p-inv-action-ink:#ffffff; --font-display:"Archivo",system-ui,sans-serif; --font-text:"Archivo",system-ui,sans-serif; --font-mono:"Martian Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace; --display-weight:500; --display-tracking:-0.025em; --display-tracking-xl:-0.035em; --display-stretch:110%; --ly-scale:0.9; }</style>
+<link rel="stylesheet" href="cards.css">
+<link rel="stylesheet" href="site.css">
+<script>document.documentElement.classList.add('m-enter');setTimeout(()=>document.documentElement.classList.add('m-enter-done'),700)</script>
+<script src="assets/backgrounds/backgrounds.js"></script>
+<script>document.documentElement.classList.add('mo-js');setTimeout(()=>document.documentElement.classList.add('mo-safe'),2500)</script>
+<link rel="modulepreload" href="assets/moments/moments.js">
+<link rel="modulepreload" href="assets/moments/lib.js">
+<link rel="modulepreload" href="assets/moments/letters-assemble/moment.js">
 </head>
 <body>
-<main id="app" class="app"></main>
-<section id="table" class="table" hidden aria-label="Game table">
-  <header id="bar" class="bar"></header>
-  <div id="stage" class="stage">
-    <div class="stage-in">
-      <div id="opps" class="opps" role="group" aria-label="Opponents"></div>
-      <div id="center" class="center"></div>
-      <div id="feed" class="feed" role="log" aria-live="off" aria-label="Recent activity"></div>
+<!-- type: software (site-kind gaming): a free browser card game for 4 to 8 players
+     deal: hero product, palette warm-black-gold, type archivo (Archivo with Martian Mono), radius soft,
+     nav nav-mega, close close-type, footer footer-statement, rhythm media-band, buttons block, mark ring,
+     ground sand (the lit stage and the closing slab), grounds none, effect none (the cards and the game's
+     own screens are the pictures; nothing abstract stands in for them)
+     moments: letters-assemble in #call
+     pictures: the hero's cards are the game's own card art in HTML; every other picture is a capture of
+     the real game (media/), taken from seeded deals. -->
+
+<header class="nav">
+  <div class="wrap nav__bar">
+    <a class="skip-link" href="#top">Skip to content</a>
+    <a class="nav__logo" href="#top"><span class="mark" data-mark="ring" aria-hidden="true"></span>Last Card</a>
+    <nav class="nav__links" aria-label="Main">
+      <div class="nav__item">
+        <a class="nav__link" href="#modes">Modes <svg class="chev" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+        <div class="nav__menu">
+          <div class="wrap grid">
+            <div class="menu-col span-3">
+              <p class="t-label">Rule sets</p>
+              <a href="#classic">Classic<span>108 cards, challenge the Draw 4</span></a>
+              <a href="#flip">Flip<span>112 cards with a dark side</span></a>
+              <a href="#nomercy">No Mercy<span>168 cards, stacks and knockouts</span></a>
+              <a href="#liar">Liar<span>Face-down cards and bluff calls</span></a>
+            </div>
+            <div class="menu-col span-3">
+              <p class="t-label">Ways to play</p>
+              <a href="play.html">On one device<span>Bots and friends passing the phone</span></a>
+              <a href="#online">Online<span>Friends join with a room code</span></a>
+            </div>
+            <a class="menu-card span-3 start-10" href="#flip">
+              <div class="panel"><img class="frame__img" src="media/flip.jpg" srcset="media/flip-640.jpg 640w, media/flip.jpg 1280w" sizes="300px" alt="A Flip game on its dark side, six seats, the player's hand of black cards along the bottom" width="1280" height="800" loading="lazy"></div>
+              <span class="t-card">The dark side</span>
+              <span class="t-small muted">One Flip card turns every hand over.</span>
+            </a>
+          </div>
+        </div>
+      </div>
+      <div class="nav__item"><a class="nav__link" href="#table">Table</a></div>
+      <div class="nav__item"><a class="nav__link" href="#online">Online</a></div>
+    </nav>
+    <div class="nav__actions">
+      <a class="btn btn--primary" href="play.html">Start a game</a>
+    </div>
+    <button class="nav__toggle" type="button" aria-expanded="false" aria-label="Menu">
+      <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M2 5h14M2 13h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero hero--product" data-enter aria-labelledby="hero-h">
+    <div class="wrap"><div class="hero-text hero__in">
+      <div class="hero__head">
+        <div>
+          <h1 id="hero-h">Last Card, a shedding card game</h1>
+          <p class="hero__lead">Free in the browser for 4 to 8 players, in four rule sets: Classic, Flip, No Mercy and Liar. Play bots, pass one phone around the table, or send friends a room code.</p>
+        </div>
+        <div class="btn-row">
+          <a class="btn btn--primary" href="play.html">Start a game<svg class="m-arrow" viewBox="0 0 12 12" aria-hidden="true"><path class="m-arrow__stem" d="M1 6h8"/><path class="m-arrow__head" d="M4.5 2.5 8 6l-3.5 3.5"/></svg></a>
+          <a class="btn btn--secondary" href="play.html#join">Join with a code</a>
+        </div>
+      </div>
+      <div class="hero__stage">
+        <img class="is-cutout fan-wide" src="media/fan-1900.webp" srcset="media/fan-950.webp 950w, media/fan-1900.webp 1900w, media/fan.webp 3800w" sizes="(max-width: 1023px) 100vw, 1280px" alt="A hand of nine Last Card cards: a red 7, a pink 5 from Flip's dark side, a blue Skip, a green Draw 4, a Wild Draw 4, a yellow 3 bluff card, a Wild Draw 10, a teal Flip and a red Reverse" width="3800" height="1380">
+        <img class="is-cutout fan-narrow" src="media/fan-phone-760.webp" srcset="media/fan-phone-760.webp 760w, media/fan-phone.webp 1520w" sizes="342px" alt="Three Last Card cards in a hand: a pink 5 from Flip's dark side, a Wild Draw 4 and a yellow 3 bluff card" width="1520" height="1000">
+      </div>
+    </div></div>
+  </section>
+
+  <section class="section g2" id="modes" aria-labelledby="modes-h">
+    <div class="wrap">
+      <div class="group">
+        <div class="section-head">
+          <h2 id="modes-h">Four game modes. <span class="muted">Pick one before the deal.</span></h2>
+          <p><a class="link" href="https://github.com/IIRickyII/last-card/blob/main/RULES.md">Rules reference</a></p>
+        </div>
+        <div class="grid">
+          <article class="card card--open span-6" id="classic">
+            <h3>Classic: match color or number</h3>
+            <p>108 cards, first to 500. A Wild Draw 4 can be challenged.</p>
+            <div class="panel"><img class="frame__img" src="media/match.jpg" srcset="media/match-640.jpg 640w, media/match.jpg 1280w" sizes="(max-width: 639px) 342px, (max-width: 1023px) 350px, 628px" alt="A Classic game for four: a yellow Skip on the pile and the player's hand with a yellow 6 and a Wild Draw 4 ready to play" width="1280" height="800" loading="lazy"></div>
+          </article>
+          <article class="card card--open span-6" id="flip">
+            <h3>Flip: turn the whole table over</h3>
+            <p>112 two-sided cards. One Flip card turns every hand to the dark side.</p>
+            <div class="panel"><img class="frame__img" src="media/flip.jpg" srcset="media/flip-640.jpg 640w, media/flip.jpg 1280w" sizes="(max-width: 639px) 342px, (max-width: 1023px) 350px, 628px" alt="A Flip game on its dark side: an orange 9 on the pile and the player's hand of black cards printed in pink, teal, orange and purple" width="1280" height="800" loading="lazy"></div>
+          </article>
+        </div>
+      </div>
+      <div class="grid">
+        <article class="card card--open span-6" id="nomercy">
+          <h3>No Mercy: stack the draw cards</h3>
+          <p>168 cards. Answer +4 with +6 or +10, or take the whole stack.</p>
+          <div class="panel"><img class="frame__img" src="media/stack.jpg" srcset="media/stack-640.jpg 640w, media/stack.jpg 1040w" sizes="(max-width: 639px) 342px, (max-width: 1023px) 350px, 628px" alt="A No Mercy game: a green Draw 4 on the pile, a red +4 stack marker and the player's hand with a Draw 4 and a Wild Draw 6 to answer it" width="1040" height="1000" loading="lazy"></div>
+        </article>
+        <article class="card card--open span-6" id="liar">
+          <h3>Liar: bluff face down</h3>
+          <p>Bluff cards go down face down with a claim. Call it or let it stand.</p>
+          <div class="panel"><img class="frame__img" src="media/bluff.jpg" srcset="media/bluff-640.jpg 640w, media/bluff.jpg 1040w" sizes="(max-width: 639px) 342px, (max-width: 1023px) 350px, 628px" alt="A Liar game: a face-down card on the pile that claims Red 0, and a Call the bluff button beside the player's hand" width="1040" height="1000" loading="lazy"></div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="table" aria-labelledby="table-h">
+    <div class="wrap">
+      <div class="section-head">
+        <h2 id="table-h">Eight players at one table</h2>
+        <p>Every seat shows its count and score. Bots take the seats nobody claims.</p>
+      </div>
+      <div class="band fill">
+        <picture>
+          <source media="(max-width: 639px)" srcset="media/table-phone-390.jpg 390w, media/table-phone.jpg 780w" sizes="342px">
+          <img src="media/table.jpg" alt="A Classic game for eight: seven opponents along the top, the draw pile and a red 2 on the table, and the player's hand of seven cards" width="1920" height="800" loading="lazy">
+        </picture>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="call" data-moment="letters-assemble" aria-labelledby="call-h">
+    <div class="wrap grid">
+      <div class="span-7">
+        <h2 class="mo-la__type" id="call-h">Call your last card</h2>
+        <p class="mo-la__sub">Down to one card? Press Last Card before the next player moves. Anyone who catches you first makes you draw two.</p>
+      </div>
+      <div class="lastcard span-5 start-8"><img src="media/last-card.webp" srcset="media/last-card-420.webp 420w, media/last-card.webp 630w" sizes="(max-width: 1023px) 200px, 330px" alt="One Wild card, the last card left in a hand" width="630" height="840" loading="lazy"></div>
+    </div>
+  </section>
+
+  <section class="section" id="online" aria-labelledby="online-h">
+    <div class="wrap">
+      <div class="grid fill">
+        <div class="span-7">
+          <div class="section-head">
+            <h2 id="online-h">Online games with a room code. <span class="muted">Nobody needs an account.</span></h2>
+            <p>Host a game and you get a six-character code and an invite link. Friends join from a phone or a laptop, and each device is sent only its own hand. Your browser runs the game; bots fill the seats nobody takes.</p>
+            <p>Some school and office networks block direct connections. Then pass one device around the table instead.</p>
+          </div>
+        </div>
+        <div class="room span-5 start-8"><img src="media/room.jpg" srcset="media/room-760.jpg 760w, media/room.jpg 1520w" sizes="(max-width: 1023px) 100vw, 520px" alt="The host's room screen: the room code K7M2QX in gold, the invite link with Copy and Share, and the mode and target score settings" width="1520" height="2000"></div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="footer closing footer--statement" id="contact" aria-labelledby="close-h">
+  <div class="wrap">
+    <div class="closing__cta close--type">
+      <div class="section-head">
+        <h2 id="close-h">Start a game</h2>
+        <p>Free, in the browser, for 4 to 8 players.</p>
+      </div>
+      <a class="btn btn--primary btn--xl btn--wide" href="play.html">Start a game<svg class="m-arrow" viewBox="0 0 12 12" aria-hidden="true"><path class="m-arrow__stem" d="M1 6h8"/><path class="m-arrow__head" d="M4.5 2.5 8 6l-3.5 3.5"/></svg></a>
+    </div>
+    <div class="closing__links">
+      <div class="grid">
+        <div class="span-4 stack-4">
+          <a class="nav__logo" href="#top"><span class="mark" data-mark="ring" aria-hidden="true"></span>Last Card</a>
+          <p class="footer__lede">A shedding card game in four rule sets, free in the browser.</p>
+        </div>
+        <div class="span-2 footer__col"><h3>Play</h3><ul><li><a href="play.html">New game</a></li><li><a href="play.html#join">Join a room</a></li></ul></div>
+        <div class="span-2 footer__col"><h3>Game</h3><ul><li><a href="#modes">Four game modes</a></li><li><a href="#table">Eight players</a></li></ul></div>
+        <div class="span-2 footer__col"><h3>Online</h3><ul><li><a href="#online">Room codes</a></li><li><a href="#call">Last card rule</a></li></ul></div>
+        <div class="span-2 footer__col"><h3>Source</h3><ul><li><a href="https://github.com/IIRickyII/last-card/blob/main/RULES.md">Rules reference</a></li><li><a href="https://github.com/IIRickyII/last-card">Code on GitHub</a></li></ul></div>
+      </div>
+      <div class="footer__legal">
+        <span>&copy; 2026 Last Card</span>
+      </div>
     </div>
   </div>
-  <footer id="dock" class="dock">
-    <div id="banner" class="banner" role="status" aria-live="polite"></div>
-    <div id="actions" class="actions"></div>
-    <div id="handwrap" class="handwrap"><div id="hand" class="hand" role="group" aria-label="Your hand"></div></div>
-  </footer>
-</section>
-<div id="sheets" class="sheets" hidden></div>
-<div id="cover" class="cover" hidden></div>
-<div id="toasts" class="toasts" aria-live="polite"></div>
-<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js" integrity="sha256-dgTYwxvsTxNLDRXC2AsdCV6hivAFNU9DnxQpH817QWg=" crossorigin="anonymous"></script>
-<script src="engine.js"></script>
-<script src="room.js"></script>
-<script src="net.js"></script>
-<script src="ui.js"></script>
+</footer>
+
+<script type="module" src="assets/system.js"></script>
+<script type="module" src="assets/motion/motion.js"></script>
+<script type="module" src="assets/layout/layout.js"></script>
 </body>
 </html>

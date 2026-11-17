@@ -17,8 +17,8 @@ const MODES = [
 ];
 const MNAME = { classic: 'Classic', flip: 'Flip', nomercy: 'No Mercy', liar: 'Liar' };
 const SEAT_NAMES = ['Player 1', 'Ava', 'Ben', 'Cleo', 'Dax', 'Eli', 'Fay', 'Gus'];
-const TARGETS = { classic: [0, 200, 500, 1000], flip: [0, 200, 500, 1000], liar: [0, 200, 500, 1000], nomercy: [0, 1000, 3000, 5000] };
-const DEF_TARGET = { classic: 500, flip: 500, liar: 500, nomercy: 3000 };
+const TARGETS = { classic: [0, 200, 500, 1000], flip: [0, 200, 500, 1000], liar: [0, 200, 500, 1000], nomercy: [0, 1000, 2000, 3000] };
+const DEF_TARGET = { classic: 500, flip: 500, liar: 500, nomercy: 1000 };
 const GL = {
   skip: ['⊘', 'SKIP'], rev: ['⇄', 'REVERSE'], d1: ['+1', 'DRAW 1'], d2: ['+2', 'DRAW 2'], d4: ['+4', 'DRAW 4'], d5: ['+5', 'DRAW 5'],
   flip: ['⇅', 'FLIP'], skipall: ['⊘', 'SKIP ALL'], discall: ['≡', 'DISCARD ALL'], wild: ['✦', 'WILD'], wd2: ['+2', 'WILD DRAW'],
@@ -29,24 +29,26 @@ const VORD = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'd1', 'd2', 'd4'
 const BIG = new Set(['flip', 'challenge', 'catch', 'swap', 'rotate', 'out', 'round', 'game', 'callout', 'stack']);
 const AV = ['blue', 'green', 'orange', 'purple', 'red', 'teal', 'pink', 'yellow'];
 const HOW = {
-  common: ['Everyone gets 7 cards. Match the top card by color or symbol/number, or play a Wild. Can\'t or won\'t play? Draw.',
-    'Press LAST CARD! when you are down to one or two cards. If someone catches you with one card before the next player acts, you draw 2.',
-    'Empty your hand to win the round and score the points left in everyone else\'s hands. First to the target score wins.'],
-  classic: ['Skip, Reverse, Draw 2 (next player draws 2 and is skipped), Wild, Wild Draw 4 (next player draws 4 and is skipped; they may challenge. If you held a card of the previous color you draw 4 instead, otherwise they draw 6).',
-    'Draw 1 when you can\'t play; you may play it at once.',
-    'Scoring: numbers face value, Skip/Reverse/Draw 2 = 20, Wilds = 50.'],
-  flip: ['Light side has Draw 1, Reverse, Skip, Flip, Wild, Wild Draw 2 (challengeable). Dark side has Draw 5, Reverse, Skip Everyone (you go again), Flip, Wild, Wild Draw Color (next player draws until they get the chosen color; challengeable).',
-    'A Flip card turns everything over: discard, draw pile, every hand. You can see the other side of opponents\' cards and of the top draw card.',
+  common: ['Everyone gets 7 cards. Match the top card by color, number or symbol, or play a Wild. Can\'t or won\'t play? Draw 1; if it fits you may play it at once.',
+    'Press LAST CARD! as you go down to one card. If someone catches you before the next player starts their turn, you draw 2.',
+    'Empty your hand to win the round and score the points left in everyone else\'s hands. The first player to reach the target wins the game.'],
+  classic: ['Skip, Reverse and Draw 2 (the next player draws 2 and loses their turn). Wild Draw 4 is only legal when you hold no card of the color in play.',
+    'The next player may challenge a Wild Draw 4 and sees your hand. Guilty: you draw 4. Innocent: they draw 6 and lose their turn.',
+    'Scoring: numbers at face value; Skip, Reverse, Draw 2 = 20; Wild, Wild Draw 4 = 50.'],
+  flip: ['Light side: Draw 1, Reverse, Skip, Flip, Wild, Wild Draw 2. Dark side: Draw 5, Reverse, Skip Everyone (you play again), Flip, Wild, Wild Draw Color (the next player draws until the chosen color shows).',
+    'A Flip card turns everything over: the discard pile, the draw pile and every hand. You see the other side of everyone else\'s cards and of the top draw card.',
+    'Wild Draw 2 and Wild Draw Color can be challenged like a Wild Draw 4.',
     'Scoring: Draw 1 = 10; Draw 5, Reverse, Skip, Flip = 20; Skip Everyone = 30; Wild = 40; Wild Draw 2 = 50; Wild Draw Color = 60.'],
-  nomercy: ['Draw cards stack: answer with an equal or bigger one (+2, +4, Wild Reverse +4, +6, +10) or take the whole stack and lose your turn.',
-    'Skip Everyone, Discard All (dump every card of that color), Wild Color Roulette (next player names a color and flips cards until it appears, keeping them all), 0 = everyone passes their hand along the direction of play, 7 = swap hands with a player you pick.',
-    'Can\'t play? Keep drawing until you can. 25 cards = knocked out; the last player standing also wins.',
-    'Scoring: Skip/Reverse/Draw 2/Discard All = 20; Skip Everyone/Draw 4 = 30; Wilds = 50.'],
-  liar: ['Cards marked with a ? are bluff cards. Play one face down and claim any card that fits the pile: the same color, the same number or action, or a Wild Draw 4.',
-    'The next player may let it stand or call the bluff, and any other player may call it too. If the card is not what was claimed, it goes back to its owner, who draws 1 more. If the claim was true, the caller draws 1 and the card works as claimed.',
-    '0 passes every hand to the next player, 7 swaps hands with a player you choose.',
-    'Wild Call-Out: every other player puts one card face down, and the caller flips them one at a time. A card that is not of the current color was a bluff, and its owner draws 1. Anyone left without cards wins.',
-    'Scoring: Skip/Reverse/Draw 2 = 20; Wild Draw 4 and Call-Out = 50.'],
+  nomercy: ['Draw cards stack: answer with one of equal or higher value (+2, +4, +6, +10, any color) or take the whole stack and lose your turn.',
+    'Can\'t play? Keep drawing until a card fits, and then you must play it.',
+    'Skip Everyone, Discard All (every card of that color goes too), Wild Reverse Draw 4, Wild Color Roulette (the next player names a color and turns up cards until it shows, keeping them all). 0: every hand passes along. 7: swap hands with a player you pick.',
+    '25 cards or more and you are out. The last player standing wins the round. Going out ends the round at once.',
+    'Scoring: numbers at face value; every colored action card = 20; every Wild = 50; each knocked-out player = 250.'],
+  liar: ['Cards marked with a gold corner are bluff cards. Play one face down and claim any card that fits the pile: the same color, the same number or action, or a Wild Draw 4.',
+    'The next player lets it stand or calls the bluff, and anyone else may call it first. Caught bluff: the card goes back to its owner with 1 extra card. Wrong call: the caller draws 1 and the claim works.',
+    '0 passes every hand to the next player. 7 swaps hands with a player you choose.',
+    'Wild Call-Out: the caller names a color and everyone else puts one card face down; if you hold that color you must put one down. The caller flips them one by one and stops at the first true card. Caught bluffers keep their card and draw 1. Anyone left with no cards wins.',
+    'Scoring: numbers at face value; Draw 2, Reverse, Skip = 20; Wild Draw 4, Wild Call-Out = 50.'],
 };
 
 // ---------- icons ----------
@@ -83,7 +85,7 @@ let pview = null, pinfo = null, lobbyData = null; // player: last view, room inf
 let hostCode = '', joinCode = '', joinName = '', connectMsg = '';
 let infoSheet = null, claimUI = null, alertUI = null, alertN = 0;
 let lastN = null, lastTopKey = '', targetTouched = false;
-let sheetKey = '', prevFocus = null, coverKey = '';
+let sheetKey = '', prevFocus = null, coverKey = '', peekSeen = -1;
 const cfg = { mode: 'classic', n: 4, target: 500, seats: SEAT_NAMES.map((n, i) => ({ name: n, bot: i > 0 })) };
 
 const store = {
@@ -166,18 +168,18 @@ function cardEl(f, o) {
   o = o || {};
   const g = GL[f.v] || [String(f.v), ''];
   const lbl = LC.label(f) + (o.liar ? ' (bluff card)' : '');
-  const attrs = Object.assign({ class: `card c-${f.c}${o.dark ? ' dk' : ''}${o.cls ? ' ' + o.cls : ''}`, 'aria-label': lbl, title: lbl }, o.attrs);
+  const attrs = Object.assign({ class: `pcard c-${f.c}${o.dark ? ' dk' : ''}${o.cls ? ' ' + o.cls : ''}`, 'aria-label': lbl, title: lbl }, o.attrs);
   if (o.tag === 'button') attrs.type = 'button';
   return h(o.tag || 'div', attrs,
     f.c === 'wild' && h('span', { class: 'ring' }),
     h('i', { class: 'cn tl', text: g[0], 'aria-hidden': 'true' }),
     h('div', { class: 'mid', 'aria-hidden': 'true' },
-      h('b', { class: 'g' + (g[0].length > 2 ? ' long' : '') + (f.v === '6' || f.v === '9' ? ' u' : ''), text: g[0] }),
-      g[1] && h('small', { text: g[1] })),
+      h('b', { class: 'g' + (g[0].length > 2 ? ' long' : '') + (f.v === '6' || f.v === '9' ? ' u' : ''), text: g[0] })),
+    g[1] && h('small', { class: 'nm', text: g[1], 'aria-hidden': 'true' }),
     h('i', { class: 'cn br', text: g[0], 'aria-hidden': 'true' }),
     o.liar && h('span', { class: 'bluff', 'aria-hidden': 'true' }, icon('q')));
 }
-const backEl = (cls) => h('div', { class: 'card back' + (cls ? ' ' + cls : ''), role: 'img', 'aria-label': 'Card back' });
+const backEl = (cls) => h('div', { class: 'pcard back' + (cls ? ' ' + cls : ''), role: 'img', 'aria-label': 'Card back' });
 function sortedHand(hand, side) {
   const order = LC.COLORS[side].concat('wild');
   return hand.slice().sort((a, b) => order.indexOf(a.face.c) - order.indexOf(b.face.c) || VORD.indexOf(a.face.v) - VORD.indexOf(b.face.v));
@@ -441,11 +443,14 @@ function topNav(title, back, right) {
 const targetLabel = (v) => (v ? String(v) : 'One round');
 const modeDesc = (m) => MODES.find((x) => x[0] === m)[2];
 
+const FAN = [{ c: 'red', v: '7' }, { c: 'yellow', v: 'skip' }, { c: 'wild', v: 'wild' }, { c: 'green', v: 'd2' }, { c: 'blue', v: '1' }];
 function homeScreen() {
   return h('div', { class: 'page' },
+    h('a', { class: 'brand', href: 'index.html' }, h('span', { class: 'brand-mark', 'aria-hidden': 'true' }), 'Last Card'),
+    h('div', { class: 'homefan', 'aria-hidden': 'true' }, FAN.map((f, i) => cardEl(f, { cls: 'f' + i }))),
     h('div', { class: 'hero' },
-      h('h1', { class: 'large', text: 'LAST CARD' }),
-      h('p', { class: 'lead', text: 'The shedding card game for 4 to 8 players. Play bots, pass the device, or go online.' })),
+      h('h1', { class: 'large', text: 'Deal a game' }),
+      h('p', { class: 'lead', text: 'Four to eight players. Bots, friends on this device, or friends online with a room code.' })),
     h('div', { class: 'bigopts' },
       bigOpt('device', 'Play on this device', 'Bots and pass-and-play', () => go('setup')),
       bigOpt('host', 'Host an online game', 'Invite friends with a link', () => { if (!LN || !LN.available()) return onlineDown(); go('hostsetup'); }),
@@ -549,7 +554,7 @@ function lobbyScreen() {
       } else toast('Couldn’t copy. Select the link instead.', 'err');
     }, 'tinted', { 'data-fk': 'copy' }),
     typeof navigator.share === 'function' ? btn('Share', () => {
-      navigator.share({ title: 'LAST CARD', text: 'Join my game of Last Card', url: link }).catch(() => {});
+      navigator.share({ title: 'Last Card', text: 'Join my game of Last Card', url: link }).catch(() => {});
     }, 'tinted', { 'data-fk': 'share' }) : null);
   return h('div', { class: 'page' },
     topNav('', () => openInfo('leave')),
@@ -639,14 +644,16 @@ function oppEl(i, v) {
     onclick: pick ? () => act(swapPick ? { type: 'swap', target: i } : { type: 'reveal', target: i }) : null,
   },
   h('div', { class: 'opp-head' }, avatar(pl.name, i, v.phase === 'play' && v.actor === i ? 'act' : ''),
-    h('div', { class: 'opp-id' }, h('b', { class: 'ell', text: pl.name }), badges)),
-  h('div', { class: 'opp-stat', text: `${plural(n, 'card')} · ${pl.score} pts` }),
+    h('div', { class: 'opp-id' }, h('b', { class: 'ell', text: pl.name }))),
+  badges,
+  h('div', { class: 'opp-stat' }, plural(n, 'card'), h('span', { class: 'pts', text: ` · ${pl.score} pts` })),
   fan, placed);
   return el;
 }
 function renderOpps(v) {
-  const n = v.players.length;
-  $('#opps').replaceChildren(...Array.from({ length: n - 1 }, (_, k) => oppEl((v.seat + k + 1) % n, v)));
+  const n = v.players.length, box = $('#opps');
+  box.style.setProperty('--n', String(n - 1));
+  box.replaceChildren(...Array.from({ length: n - 1 }, (_, k) => oppEl((v.seat + k + 1) % n, v)));
 }
 function renderCenter(v) {
   const dark = v.side === 'dark', flip = v.mode === 'flip', pd = v.pending;
@@ -688,7 +695,7 @@ function bannerInfo(v) {
   }
   if (my) {
     if (!pd) return [v.stack ? `Stack a draw card or take +${v.stack}` : 'Your turn', true];
-    if (pd.type === 'drawn') return ['You drew a playable card: play it or keep it', true];
+    if (pd.type === 'drawn') return [v.mode === 'nomercy' ? 'You drew a card that fits: play it' : 'You drew a playable card: play it or keep it', true];
     if (pd.type === 'swap') return ['Pick a player to swap hands with', true];
     if (pd.type === 'place') return [`Call-Out: put a ${pd.color} card face down — any card if you have none (that’s a bluff)`, true];
     if (pd.type === 'callout') return [pd.shown.some(Boolean) ? 'Flip another card, or stop' : 'Tap a face-down card to flip it', true];
@@ -709,7 +716,8 @@ function renderDock(v) {
   const acts = [];
   if (drawn) {
     const dc = v.hand.find((c) => c.id === pd.id);
-    acts.push(btn('Play it', () => { if (dc) playCard(dc); }, 'filled', { 'data-fk': 'a-play' }), btn('Keep', () => act({ type: 'keep' }), 'gray', { 'data-fk': 'a-keep' }));
+    acts.push(btn('Play it', () => { if (dc) playCard(dc); }, 'filled', { 'data-fk': 'a-play' }));
+    if (v.mode !== 'nomercy') acts.push(btn('Keep', () => act({ type: 'keep' }), 'gray', { 'data-fk': 'a-keep' }));
   } else {
     acts.push(btn(v.stack > 0 ? `Take +${v.stack}` : 'Draw', () => act({ type: 'draw' }), 'filled', { disabled: !(my && !pd), 'data-fk': 'a-draw' }));
   }
@@ -727,9 +735,8 @@ function renderDock(v) {
 
   // hand
   const wrap = $('#handwrap'), keep = wrap.scrollLeft;
-  const placing = my && pd && pd.type === 'place' && pd.p === v.seat;
   const cards = sortedHand(v.hand, v.side).map((c) => {
-    const can = my && (c.playable || placing);
+    const can = my && c.playable;
     const placedDown = pd && pd.type === 'place' || pd && pd.type === 'callout' ? pd.mine === c.id : false;
     return cardEl(c.face, {
       tag: 'button', dark: v.side === 'dark', liar: c.liar,
@@ -869,6 +876,15 @@ function outOfTurnBtns() {
   if (vul !== null && vul !== undefined && vul !== v.seat) out.push(btn(`Catch ${v.players[vul].name}!`, once({ type: 'catch', target: vul }), 'danger-fill'));
   return out;
 }
+function peekSheet(pk) {
+  const v = cv, pl = v.players[pk.of], who = pl ? String(pl.name) : '';
+  const cards = pk.cards.filter((f) => f && typeof f.c === 'string' && typeof f.v === 'string');
+  const done = () => { peekSeen = pk.n; render(); };
+  return sheetNode(who ? `${who}’s hand` : 'Their hand', [
+    h('p', { text: `You challenged, so you see the ${plural(cards.length, 'card')} ${who || 'they'} held. Only you see them.` }),
+    h('div', { class: 'peek-hand' }, cards.map((f) => cardEl(f, { dark: v.side === 'dark', cls: 'mini2' })))],
+  [btn('Done', done, 'filled', { 'data-first': '1' })]);
+}
 function decisionSheet() {
   const v = cv, pd = v.pending;
   if (!pd || !mine()) return null;
@@ -916,7 +932,13 @@ function wantSheet() {
   }
   if (cv.phase !== 'play') return { key: `end:${cv.round}:${cv.phase}`, node: endSheet };
   const d = decisionSheet();
-  return d ? { key: 'dec:' + d.key, node: d.node } : null;
+  if (d) return { key: 'dec:' + d.key, node: d.node };
+  const pk = cv.peek;
+  if (pk && Array.isArray(pk.cards) && pk.n !== peekSeen) {
+    const done = () => { peekSeen = pk.n; render(); };
+    return { key: 'peek:' + pk.n, node: () => peekSheet(pk), esc: done };
+  }
+  return null;
 }
 function renderSheets() {
   const w = wantSheet(), root = $('#sheets');
@@ -992,6 +1014,7 @@ function currentView() {
 }
 function render() {
   cv = screen === 'game' ? currentView() : null;
+  if (!cv || !cv.peek) peekSeen = -1; // a look lasts until the challenger's next move; the next one shows again
   const g = screen === 'game' && !!cv;
   $('#table').hidden = !g;
   $('#app').hidden = g;
@@ -1008,9 +1031,9 @@ function render() {
 
 // ---------- boot ----------
 function fromHash() {
-  const m = /^#join=([A-Za-z0-9]{1,12})$/.exec(location.hash || '');
+  const m = /^#join(?:=([A-Za-z0-9]{1,12}))?$/.exec(location.hash || '');
   if (!m) return false;
-  joinCode = m[1].toUpperCase().slice(0, 6);
+  joinCode = m[1] ? m[1].toUpperCase().slice(0, 6) : joinCode;
   return true;
 }
 window.addEventListener('hashchange', () => { if (fromHash() && (screen === 'home' || screen === 'join')) go('join'); });

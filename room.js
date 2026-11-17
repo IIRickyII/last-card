@@ -6,7 +6,7 @@
  * const room = LastCardRoom.create({ onUpdate, send, drop, timers, delays, now })
  *   onUpdate()               something changed: re-render the local screen
  *   send(connId, text)       deliver a JSON string to a remote player;  drop(connId): close that connection
- *   timers {set(fn, ms) -> id, clear(id)}, delays {bot:[min,max], react:[min,max]} ms, now() -> ms (tests inject)
+ *   timers {set(fn, ms) -> id, clear(id)}, delays {bot:[min,max], react:[min,max]} ms, now() -> ms, seed, random() (tests inject)
  *
  * Lobby: room.settings {mode, target, count}; room.seats [{kind:'local'|'remote'|'bot', name, away}]
  *   configure({mode, target, count}), addLocal(name) -> seat, addBot(), removeSeat(i), start(), restart()
@@ -81,7 +81,8 @@
 
     const room = { settings: { mode: 'classic', target: 500, count: 4 }, seats: [], state: null, paused: false, closed: false };
 
-    const rnd = ([a, b]) => a + Math.random() * (b - a);
+    const random = opts.random || Math.random; // bot timing jitter (tests inject a seeded one)
+    const rnd = ([a, b]) => a + random() * (b - a);
     const reply = (id, msg) => send(id, JSON.stringify(msg));
     const seatOf = (id) => room.seats.findIndex((s) => s.kind === 'remote' && s.conn === id);
     const isBot = (i) => { const s = room.seats[i]; return !!s && (s.kind === 'bot' || (s.kind === 'remote' && s.away)); };
@@ -133,7 +134,7 @@
         room.seats.push({ kind: 'bot', name: uniqueName(name), conn: null, token: null, away: false });
       }
       room.state = LC.newGame({
-        mode: room.settings.mode, target: room.settings.target,
+        mode: room.settings.mode, target: room.settings.target, seed: opts.seed, // unset in real games: random deal
         players: room.seats.map((s) => ({ name: s.name, bot: s.kind === 'bot' })),
       });
       changed();

@@ -1,0 +1,102 @@
+/* Last Card — the playing cards. Shared by the site (index.html) and the game (play.html).
+   Markup (ui.js cardEl): .pcard.c-<suit>[.dk] > [.ring] .cn.tl .mid>b.g [small.nm] .cn.br [.bluff]; backs: .pcard.back */
+.pcard {
+  --w: 84px;
+  --s: #5c5752; --on: #fff; --line: rgba(255, 255, 255, .34);
+  position: relative; flex: none; display: grid; place-items: center;
+  width: var(--w); aspect-ratio: 5 / 7; padding: 0; border: 0;
+  border-radius: calc(var(--w) * .1);
+  background: var(--s); color: var(--on);
+  font-family: "Archivo", system-ui, sans-serif; font-size: calc(var(--w) / 8);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .06) inset, 0 .6em 1.4em -.6em rgba(0, 0, 0, .7);
+  user-select: none; -webkit-user-select: none; overflow: hidden;
+}
+/* the keyline: one inner frame, the card's only ornament */
+.pcard::before {
+  content: ""; position: absolute; inset: calc(var(--w) * .055);
+  border: 1px solid var(--line); border-radius: calc(var(--w) * .065); pointer-events: none;
+}
+.c-red    { --s: #d6453b; }
+.c-yellow { --s: #efc23a; --on: #1d160c; --line: rgba(29, 22, 12, .28); }
+.c-green  { --s: #2e9a66; }
+.c-blue   { --s: #2f6fd0; }
+/* Flip's dark side: black card, the suit as ink */
+.pcard.dk { background: #14110e; --line: color-mix(in srgb, var(--s) 70%, transparent); color: var(--s); }
+.c-pink   { --s: #ff5f8f; }
+.c-teal   { --s: #32c4b4; }
+.c-orange { --s: #ff8d44; }
+.c-purple { --s: #9b7dff; }
+.c-wild   { --s: #1a1612; --on: #fff; --line: rgba(255, 255, 255, .22); }
+.pcard.dk.c-wild { color: #fff; --line: rgba(255, 255, 255, .22); }
+
+.pcard .mid { position: relative; display: grid; justify-items: center; gap: .15em; text-align: center; z-index: 1; }
+.pcard .g {
+  font-weight: 600; font-stretch: 125%; font-size: 4.2em; line-height: .9; letter-spacing: -.04em;
+  font-variant-numeric: lining-nums;
+}
+.pcard .g.long { font-size: 2.7em; letter-spacing: -.05em; }
+.pcard .g.u { text-decoration: underline; text-decoration-thickness: .06em; text-underline-offset: .08em; }
+/* the action's name: a footer line inside the keyline, clear of the glyph and the wild chip */
+.pcard .nm {
+  position: absolute; left: 0; right: 0; bottom: 12.5%; z-index: 1; text-align: center;
+  font-family: "Martian Mono", ui-monospace, Menlo, monospace; font-size: .6em; font-weight: 500; line-height: 1;
+  letter-spacing: .02em; opacity: .92; white-space: nowrap;
+}
+.pcard .cn {
+  position: absolute; font-style: normal; font-family: "Martian Mono", ui-monospace, Menlo, monospace;
+  font-size: 1.05em; font-weight: 500; line-height: 1; z-index: 1;
+}
+.pcard .cn.tl { top: calc(var(--w) * .1); left: calc(var(--w) * .1); }
+.pcard .cn.br { bottom: calc(var(--w) * .1); right: calc(var(--w) * .1); transform: rotate(180deg); }
+/* an action card's name takes the foot, so its turned corner index steps aside */
+.pcard:has(.nm) .cn.br { display: none; }
+
+/* wilds: the side's four colours as a key strip above the glyph */
+.pcard .ring {
+  --c1: #d6453b; --c2: #efc23a; --c3: #2e9a66; --c4: #2f6fd0;
+  position: absolute; left: 24%; right: 24%; top: 19%; height: 5.5%; z-index: 1;
+  border-radius: calc(var(--w) * .015);
+  background: linear-gradient(90deg, var(--c1) 0 25%, var(--c2) 0 50%, var(--c3) 0 75%, var(--c4) 0);
+}
+.pcard.dk .ring { --c1: #ff5f8f; --c2: #32c4b4; --c3: #ff8d44; --c4: #9b7dff; }
+.pcard.mini .ring { left: 14%; right: 14%; height: 9%; }
+
+/* back: warm black, the gold ring mark */
+.pcard.back { background: #0f0d0b; --line: rgba(201, 164, 90, .45); }
+.pcard.back::after {
+  content: ""; width: 44%; aspect-ratio: 1; border-radius: 50%;
+  border: calc(var(--w) * .045) solid #c9a45a; box-shadow: 0 0 0 calc(var(--w) * .03) #0f0d0b, 0 0 0 calc(var(--w) * .05) rgba(201, 164, 90, .35);
+}
+
+/* bluff mark (Liar): a gold corner tab */
+.pcard .bluff {
+  position: absolute; top: 0; right: 0; width: 30%; aspect-ratio: 1; z-index: 2;
+  background: #c9a45a; color: #0c0a08; clip-path: polygon(0 0, 100% 0, 100% 100%);
+  display: grid; place-items: start end; padding: 6%;
+}
+.pcard .bluff svg { width: 46%; height: 46%; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+
+/* sizes */
+.pcard.lg { --w: clamp(92px, 9vw, 128px); }
+.pcard.mini { --w: 26px; box-shadow: 0 2px 4px rgba(0, 0, 0, .5); }
+.pcard.mini .mid, .pcard.mini .cn, .pcard.mini .nm, .pcard.mini .bluff { display: none; }
+.pcard.mini2 { --w: 44px; }
+.pcard.mini2 .cn, .pcard.mini2 .nm { display: none; }
+@media (max-width: 640px) {
+  .pcard { --w: 68px; }
+  .pcard.lg { --w: 92px; }
+  .pcard.mini { --w: 20px; }
+}
+
+/* claim picker (Liar) */
+.pcard.mini3 { --w: 52px; cursor: pointer; transition: transform .16s cubic-bezier(.22, 1, .36, 1), box-shadow .16s; }
+.pcard.mini3 .cn, .pcard.mini3 .nm { display: none; }
+.pcard.mini3.sel { box-shadow: 0 0 0 2px #0c0a08, 0 0 0 4px var(--accent, #c9a45a); transform: translateY(-4px); }
+
+/* states shared by the table and the site */
+.pcard:focus-visible { outline: 2px solid var(--accent, #c9a45a); outline-offset: 3px; }
+.pcard.pop { animation: pcard-in .32s cubic-bezier(.22, 1, .36, 1); }
+@keyframes pcard-in { from { transform: translateY(-14px) rotate(-6deg) scale(.92); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .pcard { transition: none; animation: none; }
+}

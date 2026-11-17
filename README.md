@@ -3,13 +3,13 @@
 An original shedding card game for 4–8 players with four modes: **Classic**, **Flip**, **No Mercy** and **Liar**.
 Play on one device against bots or pass-and-play, or play online with friends. There's no install, no account and no server.
 
-**Play:** https://iirickyii.github.io/last-card/
+**Site:** https://iirickyii.github.io/last-card/ · **Play:** https://iirickyii.github.io/last-card/play.html
 
 ## Playing online with friends
 
 1. One person picks **Host an online game**, enters a name and gets a 6-character room code with an invite link.
 2. Friends open the link, or pick **Join a game** and type the code, from any recent Safari, Chrome, Edge or Firefox, on phone or computer.
-3. The host chooses the mode, target score and number of players, then presses **Start**. Empty seats are filled with bots.
+3. The host chooses the mode, target score and number of players, then presses **Start game**. Empty seats are filled with bots.
 
 Keep the host's page open: the host's browser runs the game. If a friend loses their connection, a bot plays their seat until they open the link again in the same browser tab.
 
@@ -22,16 +22,16 @@ Keep the host's page open: the host's browser runs the game. If a friend loses t
 | No Mercy | 168 | Stacking +2/+4/+6/+10 and Wild Reverse +4, Discard All, Color Roulette, 0 rotates hands, 7 swaps hands, 25 cards knocks you out |
 | Liar | 112 | Bluff cards are played face down while you claim what they are. Anyone can call the bluff. Wild Call-Out makes everyone put a card face down; the caller flips them |
 
-The full rules for each mode are under **Rules** in the game.
+The full rules for each mode are under **How to play** in the game. [RULES.md](RULES.md) lists every rule parameter, where it comes from and the test that checks it. Targets: 500 for Classic, Flip and Liar; 1000 for No Mercy (or a single round).
 
 ### Rule choices
 
-- The first discard is always a number card.
-- When a Flip reveals a card, that card's action doesn't happen. If it's a wild, the player who flipped picks the color.
-- No Mercy: any draw card of equal or higher value can be stacked, whatever its color. For Color Roulette, the next player names the color.
-- Liar: a bluff claim must be a card that could legally be played. A wrong call costs the caller 1 card. A caught bluff goes back to its owner with 1 extra card, and its effect doesn't happen. In a Call-Out, any card may be put down; players who go out together share the win.
-- Going out on Wild Draw Color or Color Roulette makes nobody draw.
-- If no one can play and there is nothing left to draw, the lowest hand wins the round.
+Where the published instruction sheets leave a case open, the game decides as follows (also in [RULES.md](RULES.md)):
+
+- A Flip that turns up a wild: the player who played the Flip picks the color, and nothing else happens.
+- A Flip card as the opening card goes back into the deck, like Wild Draw 2.
+- If no one can play and there is nothing left to draw for a whole round of turns, the lowest hand wins the round.
+- The game seats 4 to 8 players.
 
 ## How online play works, and what it means for privacy
 
@@ -40,14 +40,15 @@ The full rules for each mode are under **Rules** in the game.
 - The host checks everything players send: message size, message rate, format, and the game rules. A player can only act for their own seat.
 - Because players connect directly, each player's browser learns the others' IP addresses. Video calls work the same way.
 - There is no free public relay server any more, so a few very strict networks (some mobile carriers, offices) can't connect. If a friend is stuck, try another network, or add your own TURN server in `net.js`.
-- The page uses a strict Content-Security-Policy. The one outside script (PeerJS 1.5.5 from jsDelivr) is pinned with Subresource Integrity.
+- The game page uses a strict Content-Security-Policy; the site's policy allows inline styles but pins its two inline scripts by hash. The one outside script (PeerJS 1.5.5 from jsDelivr) is pinned with Subresource Integrity. Fonts come from Google Fonts.
 
 ## Files
 
 - `engine.js`: rules, bots and per-player views. Pure JavaScript, which also runs in Node.
 - `room.js`: runs a game on the host's device, including bots, timing and checks on every message from players.
 - `net.js`: the WebRTC connection layer, using PeerJS.
-- `index.html`, `style.css`, `ui.js`: the interface, styled after Apple's Human Interface Guidelines.
+- `play.html`, `style.css`, `ui.js`: the game's interface. `cards.css`: the card art, shared with the site.
+- `index.html`, `site.css`, `assets/`, `media/`: the site. It is built on the design kit in `assets/`; every picture in `media/` is a capture of the real game or a render of its cards.
 - `tests/`: rules for every mode, hidden-information checks, malicious and malformed message tests, and full simulated games.
 
 ```bash
