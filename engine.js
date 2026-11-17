@@ -60,10 +60,10 @@
   const PTS = {
     classic: { skip: 20, rev: 20, d2: 20, wild: 50, wd4: 50 },
     flip: { d1: 10, d5: 20, skip: 20, rev: 20, flip: 20, skipall: 30, wild: 40, wd2: 50, wdc: 60 },
-    nomercy: { skip: 20, rev: 20, d2: 20, discall: 20, skipall: 30, d4: 30, wrd4: 50, wd6: 50, wd10: 50, roul: 50 },
+    nomercy: { skip: 20, rev: 20, d2: 20, discall: 20, skipall: 20, d4: 20, wrd4: 50, wd6: 50, wd10: 50, roul: 50 },
     liar: { skip: 20, rev: 20, d2: 20, wd4: 50, wlc: 50 },
   };
-  const HAND_SIZE = 7, MERCY = 25;
+  const HAND_SIZE = 7, MERCY = 25, KNOCKOUT_BONUS = 250;
   const SWAPS = { nomercy: true, liar: true }; // a 0 passes every hand on, a 7 swaps with a chosen player
   const CLAIMS = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'd2', 'rev', 'skip']; // plus Wild Draw 4
 
@@ -151,12 +151,13 @@
   function drawOne(s) {
     if (!s.draw.length) {
       // keep the top card; while a face-down card is unresolved (its color being picked, or in doubt) also the one
-      // under it, which a caught bluff uncovers
+      // under it, which a caught bluff uncovers. No Mercy: knocked-out hands set aside join this reshuffle.
       const keep = s.pending && (s.pending.type === 'doubt' || s.pending.down) ? 2 : 1;
-      if (s.discard.length <= keep) return null; // every card is in someone's hand
-      const kept = s.discard.splice(s.discard.length - keep);
-      s.draw = shuffle(s, s.discard);
-      s.discard = kept;
+      const pool = s.discard.slice(0, Math.max(0, s.discard.length - keep)).concat(s.aside);
+      if (!pool.length) return null; // every card is in someone's hand
+      s.discard = s.discard.slice(-keep);
+      s.aside = [];
+      s.draw = shuffle(s, pool);
       log(s, 'shuffle', -1, 'Discard pile shuffled into a new draw pile');
     }
     return s.draw.pop();
@@ -187,7 +188,7 @@
     const s = {
       mode, target, round: 0, seq: 0, events: [],
       seed: seed == null ? (Math.random() * 4294967296) >>> 0 : seed >>> 0,
-      players: players.map((p, i) => ({ name: p.name || 'Player ' + (i + 1), bot: !!p.bot, hand: [], score: 0, out: false, called: false, elimPts: 0 })),
+      players: players.map((p, i) => ({ name: p.name || 'Player ' + (i + 1), bot: !!p.bot, hand: [], score: 0, out: false, called: false })),
     };
     startRound(s);
     return s;
@@ -198,19 +199,62 @@
   }
   function startRound(s) {
     s.round++;
-    Object.assign(s, { phase: 'play', side: 'light', dir: 1, stack: 0, stackMin: 0, pending: null, vulnerable: null, winner: null, lastRound: null, passes: 0, claim: null });
-    for (const pl of s.players) Object.assign(pl, { hand: [], out: false, called: false, elimPts: 0 });
+    Object.assign(s, {
+      phase: 'play', side: 'light', dir: 1, stack: 0, stackMin: 0, pending: null, vulnerable: null, winner: null,
+      lastRound: null, passes: 0, claim: null, aside: [], peek: null,
+    });
+    for (const pl of s.players) Object.assign(pl, { hand: [], out: false, called: false });
     s.draw = buildDeck(s);
     for (let r = 0; r < HAND_SIZE; r++) for (const pl of s.players) pl.hand.push(s.draw.pop());
-    s.discard = s.draw.splice(s.draw.findLastIndex((c) => isNum(c.light)), 1); // always start on a number card
-    s.color = s.discard[0].light.c;
-    s.turn = (s.round - 1) % s.players.length;
+    const n = s.players.length;
+    s.turn = (s.round - 1) % n; // the deal moves one seat each round; the dealer sits just before s.turn
     log(s, 'round', s.turn, `Round ${s.round}: ${name(s, s.turn)} goes first`);
+    openingCard(s, (s.turn - 1 + n) % n);
+  }
+  // Turn up the first discard and do what each rule sheet says about it.
+  function openingCard(s, dealer) {
+    const first = s.turn;
+    s.discard = [];
+    for (;;) {
+      const card = s.draw.pop(), f = card.light;
+      if (isNum(f)) {
+        s.discard.push(card);
+        s.color = f.c;
+        return;
+      }
+      if (s.mode === 'nomercy' || s.mode === 'liar') { // "ignore it and flip over the next card"
+        s.discard.push(card);
+        continue;
+      }
+      if (f.v === 'wd4' || f.v === 'wd2' || f.v === 'flip') { // back into the deck, shuffle, turn up another
+        s.draw.push(card);
+        shuffle(s, s.draw);
+        continue;
+      }
+      s.discard.push(card);
+      log(s, 'play', -1, `The opening card is ${label(f)}`);
+      if (f.v === 'wild') { // the player left of the dealer chooses the color
+        s.color = null;
+        s.pending = { type: 'color', p: first, start: true };
+        return;
+      }
+      s.color = f.c;
+      if (f.v === 'skip') log(s, 'skip', first, `${name(s, first)} is skipped`);
+      if (DRAW[f.v]) log(s, 'draw', first, `${name(s, first)} draws ${plural(draw(s, first, DRAW[f.v]).k)} and is skipped`);
+      if (f.v === 'skip' || DRAW[f.v]) s.turn = nextIdx(s, first);
+      if (f.v === 'rev') { // the dealer goes first and play moves the other way
+        s.dir = -1;
+        s.turn = dealer;
+        log(s, 'reverse', dealer, `${name(s, dealer)} goes first, the other way round`);
+      }
+      return;
+    }
   }
   // w: the winner, or several players who went out together (Liar Call-Out); each scores the other hands.
+  // A player knocked out in No Mercy is worth a flat KNOCKOUT_BONUS instead of their hand.
   function endRound(s, w) {
     const ws = [].concat(w);
-    const detail = s.players.map((pl, p) => ({ p, pts: ws.includes(p) ? 0 : pl.out ? pl.elimPts : handPts(s, pl) }));
+    const detail = s.players.map((pl, p) => ({ p, pts: ws.includes(p) ? 0 : pl.out ? KNOCKOUT_BONUS : handPts(s, pl) }));
     const total = detail.reduce((a, d) => a + d.pts, 0);
     for (const i of ws) s.players[i].score += total;
     const best = ws.reduce((a, b) => (s.players[b].score > s.players[a].score ? b : a));
@@ -228,15 +272,14 @@
     log(s, 'round', w, 'No cards left to draw — lowest hand wins the round');
     endRound(s, w);
   }
-  // No Mercy: 25+ cards knocks a player out; their cards go under the draw pile.
+  // No Mercy: 25+ cards knocks a player out; their hand is set aside until the next reshuffle.
   function mercy(s) {
     if (s.mode !== 'nomercy') return;
     s.players.forEach((pl, i) => {
       if (pl.out || pl.hand.length < MERCY) return;
       log(s, 'out', i, `${pl.name} reached ${pl.hand.length} cards and is knocked out!`);
       pl.out = true;
-      pl.elimPts = handPts(s, pl);
-      s.draw.unshift(...shuffle(s, pl.hand));
+      s.aside.push(...pl.hand);
       pl.hand = [];
       if (s.vulnerable === i) s.vulnerable = null;
     });
@@ -302,6 +345,7 @@
   }
   function decide(s, p, a) {
     const pd = s.pending, pl = s.players[p];
+    if (s.peek && s.peek.p === p) s.peek = null; // a challenger's look at a hand lasts until their next move
     const want = (t) => pd && pd.type === t;
     switch (a.type) {
       case 'play':
@@ -310,6 +354,7 @@
         return pd ? no('Answer the pending decision first') : drawTurn(s, p);
       case 'keep':
         if (!want('drawn')) return no('Nothing to keep');
+        if (s.mode === 'nomercy') return no('In No Mercy you must play the card you drew');
         log(s, 'keep', p, `${pl.name} keeps the drawn card`);
         endTurn(s, p, 1);
         return ok();
@@ -366,6 +411,10 @@
     if (same.length) log(s, 'discard', p, `${pl.name} also discards ${same.length} ${f.c} ${same.length === 1 ? 'card' : 'cards'}`);
     if (pl.hand.length === 1 && !pl.called) s.vulnerable = p;
     pl.called = false;
+    if (!pl.hand.length && f.v === 'wdc') { // going out still makes the next player draw to a color: pick it first
+      s.pending = { type: 'color', p, final: true };
+      return ok();
+    }
     if (!pl.hand.length) return finish(s, p, f);
     if (f.v === 'roul') {
       s.pending = { type: 'roulette', p: nextIdx(s, p), from: p };
@@ -381,12 +430,12 @@
     return ok();
   }
   // Going out on a draw card still makes the next player draw (it counts for scoring).
-  // Wild Draw Color / Color Roulette as the last card draw nothing: no color is picked once the round is over.
+  // Classic, Flip and Liar: a draw card played to go out still makes the next player draw (those cards score).
+  // No Mercy's sheet just says the player who plays their final card wins, so nobody draws there.
   function finish(s, p, f) {
     if (f.v === 'flip') s.side = s.side === 'light' ? 'dark' : 'light'; // the flip still happens: score the new side
-    const n = (DRAW[f.v] || 0) + s.stack;
+    const n = s.mode === 'nomercy' ? 0 : DRAW[f.v] || 0;
     if (n) {
-      if (f.v === 'wrd4') s.dir *= -1;
       const q = nextIdx(s, p);
       log(s, 'draw', q, `${name(s, q)} draws ${plural(draw(s, q, n).k)}`);
     }
@@ -399,7 +448,9 @@
       if (v === 'wrd4') s.dir *= -1;
       s.stack += DRAW[v];
       s.stackMin = DRAW[v];
-      endTurn(s, p, 1);
+      // with two players left, Wild Reverse Draw 4 skips the other player: the 4 land on whoever played it,
+      // who may stack to send them back
+      endTurn(s, p, v === 'wrd4' && active(s).length === 2 ? 2 : 1);
       log(s, 'stack', s.turn, `${name(s, s.turn)} must stack a draw card or take ${s.stack}`);
       return;
     }
@@ -446,8 +497,12 @@
     s.vulnerable = null;
     log(s, 'rotate', -1, 'Everyone passes their hand to the next player');
   }
+  // "Flip over the Discard Pile (the card just played will now be on the bottom), then the Draw Pile, then everyone's
+  // hands": both piles turn over as stacks, so the card that was at the bottom of the discard is now on top.
   function flip(s, p) {
     s.side = s.side === 'light' ? 'dark' : 'light';
+    s.discard.reverse();
+    s.draw.reverse();
     const t = face(s, top(s));
     log(s, 'flip', p, `Everything flips to the ${s.side} side — top card is now ${label(t)}`);
     if (isWild(t)) {
@@ -458,10 +513,17 @@
     endTurn(s, p, 1);
   }
   function chooseColor(s, p, color) {
-    const { reveal, legal, down } = s.pending;
+    const { reveal, legal, down, start, final } = s.pending;
     s.pending = null;
     s.color = color;
     log(s, 'color', p, `${name(s, p)} picks ${color}`);
+    if (start) return ok(); // opening Wild: the same player now takes the first turn
+    if (final) { // went out on Wild Draw Color: the next player draws to the color, then the round is scored
+      const q = nextIdx(s, p);
+      log(s, 'draw', q, `${name(s, q)} draws ${plural(draw(s, q, Infinity, (c) => face(s, c).c === color).k)}`);
+      endRound(s, p);
+      return ok();
+    }
     if (reveal) endTurn(s, p, 1);
     else if (down) openDoubt(s, p, down);
     else effect(s, p, face(s, top(s)), legal);
@@ -530,9 +592,15 @@
     s.pending = { type: 'place', p: nextIdx(s, p), from: p, color: s.color, placed: Array(n).fill(null), shown: Array(n).fill(null) };
     log(s, 'callout', p, `Call-Out! Everyone puts a ${s.color} card face down`);
   }
+  // "Each other player must place one card of that color ... A player with no card of that color may place any card"
+  function canPlace(s, p, card) {
+    const color = s.pending.color, hand = s.players[p].hand;
+    return face(s, card).c === color || !hand.some((c) => face(s, c).c === color);
+  }
   function place(s, p, id) {
-    const pd = s.pending, pl = s.players[p];
-    if (!pl.hand.some((c) => c.id === id)) return no('That card is not in your hand');
+    const pd = s.pending, pl = s.players[p], card = pl.hand.find((c) => c.id === id);
+    if (!card) return no('That card is not in your hand');
+    if (!canPlace(s, p, card)) return no(`You hold a ${pd.color} card, so one of those must go down`);
     pd.placed[p] = id; // stays in the hand until the Call-Out settles
     log(s, 'place', p, `${pl.name} puts a card face down`);
     const q = nextIdx(s, p);
@@ -583,6 +651,8 @@
   function challenge(s, p, doIt) {
     const { from, v, legal } = s.pending;
     s.pending = null;
+    // "The challenged player must show you (the challenger) their hand": only the challenger's view carries it
+    if (doIt) s.peek = { p, of: from, n: s.seq + 1, cards: s.players[from].hand.map((c) => face(s, c)) };
     if (!doIt) {
       log(s, 'draw', p, `${name(s, p)} draws ${plural(penalty(s, p, v, 0))} and is skipped`);
       endTurn(s, p, 1);
@@ -733,7 +803,11 @@
         name: pl.name, bot: pl.bot, count: pl.hand.length, score: pl.score, out: pl.out, called: pl.called,
         backs: flip && i !== p ? pl.hand.map((c) => otherFace(s, c)) : null, // Flip: everyone sees the other side
       })),
-      hand: me ? me.hand.map((c) => ({ id: c.id, face: face(s, c), liar: !!c.liar, playable: canPlay(s, p, c) })) : [],
+      hand: me ? me.hand.map((c) => ({
+        id: c.id, face: face(s, c), liar: !!c.liar,
+        playable: canPlay(s, p, c) || (!!pd && pd.type === 'place' && pd.p === p && canPlace(s, p, c)),
+      })) : [],
+      peek: s.peek && s.peek.p === p ? { of: s.peek.of, n: s.peek.n, cards: s.peek.cards } : null,
       pending: pd ? pendingView(pd, p) : null,
       claims: s.mode === 'liar' && who === p && (!pd || pd.type === 'drawn') ? claimOptions(s) : null,
       lastRound: s.lastRound, events: s.events.slice(-20),

@@ -13,7 +13,7 @@ const game = (mode = 'classic', n = 4, seed = 7, target = 500) => newGame({ mode
 const junk = (s, n) => Array.from({ length: n }, () => (s.mode === 'flip' ? fcard(nid++, 'green', '9', 'teal', '9') : card(nid++, 'green', '9')));
 const defTop = (s) => (s.mode === 'flip' ? fcard(900, 'red', '5', 'pink', '5') : card(900, 'red', '5'));
 const ids = (hand) => hand.map((c) => c.id);
-const allCards = (s) => [...s.draw, ...s.discard, ...s.players.flatMap((p) => p.hand)];
+const allCards = (s) => [...s.draw, ...s.discard, ...(s.aside || []), ...s.players.flatMap((p) => p.hand)]; // aside: knocked-out hands (No Mercy)
 
 // Overwrite a freshly created game with a controlled scenario. `draw` top = last element.
 function setup(s, { hands = {}, topCard, color, turn = 0, dir = 1, side = 'light', draw } = {}) {
@@ -65,22 +65,54 @@ for (const mode of ['classic', 'flip', 'nomercy']) {
       assert.ok(all.every((c) => c.dark));
       assert.deepEqual(all.map((c) => key(c.dark)).sort(), DECKS[mode].dark);
     }
-    for (const pl of s.players) assert.equal(pl.hand.length, 7);
-    assert.equal(s.discard.length, 1);
-    assert.match(top(s).light.v, /^\d$/, 'top discard is a number');
-    assert.equal(s.color, top(s).light.c);
-    assert.equal(s.turn, 0);
+    // what the opening card does to hands, turn and direction is covered by the opening-card tests below
     assert.equal(s.round, 1);
     assert.equal(s.phase, 'play');
   });
-  test(`start discard is always a number card: ${mode}`, () => {
-    for (let seed = 1; seed <= 40; seed++) {
-      const s = game(mode, 4 + (seed % 5), seed);
-      assert.match(top(s).light.v, /^\d$/);
-      assert.equal(s.turn, 0);
+}
+// Opening card, per the official sheets. Classic and Flip: the turned-up card takes effect (Classic Wild Draw 4,
+// Flip Wild Draw 2 and Flip go back into the deck). No Mercy and Liar: action cards are ignored and the next card goes
+// on top until a number shows. Seat 0 sits left of the dealer (seat n-1). Each branch must occur in the seeds tried.
+for (const mode of ['classic', 'flip', 'nomercy', 'liar']) {
+  test(`opening card follows the official ${mode} rule`, () => {
+    const seen = new Set();
+    for (let seed = 1; seed <= 600; seed++) {
+      const n = 4 + (seed % 5), s = game(mode, n, seed), f = top(s).light, sizes = s.players.map((p) => p.hand.length);
+      assert.equal(allCards(s).length, { classic: 108, flip: 112, nomercy: 168, liar: 112 }[mode]);
+      if (mode === 'nomercy' || mode === 'liar') {
+        assert.match(f.v, /^\d$/, 'a number ends the turning-up');
+        assert.ok(s.discard.slice(0, -1).every((c) => !/^\d$/.test(c.light.v)), 'only ignored action cards lie under it');
+        assert.deepEqual([s.turn, s.dir, s.pending, s.color], [0, 1, null, f.c]);
+        assert.ok(sizes.every((k) => k === 7));
+        seen.add(s.discard.length > 1 ? 'ignored' : 'number');
+        continue;
+      }
+      assert.equal(s.discard.length, 1, 'returned cards go back into the deck');
+      assert.ok(!['wd4', 'wd2', 'flip'].includes(f.v), `${f.v} is never the opening card`);
+      const rest = sizes.slice(1).every((k) => k === 7);
+      if (/^\d$/.test(f.v)) { assert.deepEqual([s.turn, s.dir, s.color, sizes[0]], [0, 1, f.c, 7]); seen.add('number'); }
+      else if (f.v === 'skip') { assert.deepEqual([s.turn, s.dir, sizes[0]], [1, 1, 7]); seen.add('skip'); }
+      else if (f.v === 'rev') { assert.deepEqual([s.turn, s.dir, sizes[0]], [n - 1, -1, 7]); seen.add('rev'); }
+      else if (f.v === 'd2' || f.v === 'd1') { assert.deepEqual([s.turn, s.dir, sizes[0]], [1, 1, f.v === 'd2' ? 9 : 8]); seen.add(f.v); }
+      else if (f.v === 'wild') { assert.deepEqual([s.pending.type, s.pending.p, s.color, s.turn], ['color', 0, null, 0]); seen.add('wild'); }
+      else assert.fail(`unexpected opening card ${f.v}`);
+      assert.ok(rest, 'only the first player can be made to draw');
     }
+    const want = { classic: ['number', 'skip', 'rev', 'd2', 'wild'], flip: ['number', 'skip', 'rev', 'd1', 'wild'], nomercy: ['number', 'ignored'], liar: ['number', 'ignored'] }[mode];
+    for (const w of want) assert.ok(seen.has(w), `opening branch "${w}" was exercised`);
   });
 }
+test('opening Wild: the first player picks the color, then plays', () => {
+  for (let seed = 1; seed <= 600; seed++) {
+    const s = game('classic', 4, seed);
+    if (!s.pending) continue;
+    mustNo(act(s, { p: 0, type: 'draw' }));
+    mustOk(act(s, { p: 0, type: 'color', color: 'green' }));
+    assert.deepEqual([s.color, s.turn, s.pending], ['green', 0, null]);
+    return;
+  }
+  assert.fail('no seed opened on a Wild');
+});
 
 // ---------- 2. matching ----------
 test('matching: same color plays', () => {
@@ -300,8 +332,18 @@ test('flip: flip card switches side and applies dark top face', () => {
   assert.equal(s.turn, 1);
   assert.deepEqual(E.colors(s), DARK);
 });
+test('flip: the whole discard pile turns over, so the old bottom card is on top and the Flip card at the bottom', () => {
+  const s = setup(game('flip'), { hands: flipHand(fcard(1001, 'red', 'flip', 'orange', '9')) });
+  s.discard = [fcard(899, 'blue', '3', 'teal', '7'), fcard(900, 'red', '5', 'pink', '5')];
+  const drawBefore = ids(s.draw);
+  mustOk(act(s, { p: 0, type: 'play', id: 1001 }));
+  assert.deepEqual(ids(s.discard), [1001, 900, 899]);
+  assert.deepEqual(face(s, top(s)), { c: 'teal', v: '7' });
+  assert.equal(s.color, 'teal');
+  assert.deepEqual(ids(s.draw), drawBefore.reverse(), 'the draw pile turns over as a stack too');
+});
 test('flip: wild revealed -> flipper chooses a dark color then turn passes', () => {
-  const s = setup(game('flip'), { hands: flipHand(fcard(1001, 'red', 'flip', 'wild', 'wild')) });
+  const s = setup(game('flip'), { topCard: fcard(900, 'red', '5', 'wild', 'wild'), hands: flipHand(fcard(1001, 'red', 'flip', 'pink', '1')) });
   mustOk(act(s, { p: 0, type: 'play', id: 1001 }));
   assert.equal(s.side, 'dark');
   assert.equal(s.pending.type, 'color');
@@ -360,8 +402,8 @@ test('flip: flipping back returns to light side', () => {
   });
   mustOk(act(s, { p: 0, type: 'play', id: 1001 }));
   assert.equal(s.side, 'light');
-  assert.deepEqual(face(s, top(s)), { c: 'green', v: 'flip' });
-  assert.equal(s.color, 'green');
+  assert.deepEqual(face(s, top(s)), { c: 'yellow', v: '5' }, 'the old bottom card, now light side up');
+  assert.equal(s.color, 'yellow');
 });
 
 // ---------- 7. no mercy ----------
@@ -485,7 +527,7 @@ test('nomercy: roulette makes next player pick a color, draw until it appears, l
 });
 
 const numHand = (n, start) => Array.from({ length: n }, (_, i) => card(start + i, LIGHT[i % 4], String((i % 9) + 1)));
-test('mercy: reaching 25 cards knocks player out, cards return to draw pile', () => {
+test('mercy: reaching 25 cards knocks player out; the hand is set aside until the deck is reshuffled', () => {
   const s = nm({
     hands: { 0: [card(1001, 'red', 'd4'), card(1002, 'red', '1'), card(1003, 'red', '2')], 1: numHand(21, 2000) },
     draw: [...junk(game('nomercy'), 10), ...numHand(4, 3000)],
@@ -496,7 +538,8 @@ test('mercy: reaching 25 cards knocks player out, cards return to draw pile', ()
   assert.equal(s.players[1].out, true);
   assert.equal(s.players[1].hand.length, 0);
   assert.equal(s.phase, 'play');
-  assert.equal(s.draw.length, 10 + 25);
+  assert.equal(s.draw.length, 10, 'the knocked-out hand is not in the draw pile');
+  assert.equal(s.aside.length, 25, '"Set aside their hand of cards until the deck runs out"');
   assert.equal(allCards(s).length, total);
   assert.equal(new Set(allCards(s).map((c) => c.id)).size, total);
   assert.equal(s.turn, 2);
@@ -512,21 +555,31 @@ test('mercy: 24 cards is not knocked out', () => {
   assert.equal(s.players[1].out, false);
   assert.equal(s.players[1].hand.length, 24);
 });
-test('mercy: last player standing wins the round with knocked-out points', () => {
+test('mercy: set-aside hands join the next reshuffle', () => {
+  const s = nm({ hands: { 0: [card(1001, 'blue', '9'), card(1002, 'blue', '8')] }, draw: [] });
+  s.discard = [card(1010, 'green', '4'), card(1011, 'red', '5')];
+  s.aside = [card(1020, 'yellow', '1'), card(1021, 'yellow', '2')];
+  const total = allCards(s).length;
+  mustOk(act(s, { p: 0, type: 'draw' })); // draw until playable: reshuffle discard (minus top) + aside
+  assert.equal(s.aside.length, 0);
+  assert.equal(top(s).id, 1011);
+  assert.equal(allCards(s).length, total);
+});
+test('mercy: last player standing wins; each knocked-out player is worth a flat 250', () => {
   const s = nm({
     hands: { 0: [card(1001, 'red', 'd4'), card(1002, 'red', '1'), card(1003, 'red', '2')], 1: numHand(21, 2000), 2: [], 3: [] },
     draw: [...junk(game('nomercy'), 10), ...numHand(4, 3000)],
   });
   s.players[2].out = true;
   s.players[3].out = true;
-  const want = [...numHand(21, 2000), ...numHand(4, 3000)].reduce((a, c) => a + +c.light.v, 0);
+  const want = 3 * 250; // "250 Points for each player knocked out ... (ignore the cards in their hand)"
   mustOk(act(s, { p: 0, type: 'play', id: 1001 }));
   mustOk(act(s, { p: 1, type: 'draw' }));
   assert.ok(['roundOver', 'gameOver'].includes(s.phase));
   assert.equal(s.winner, 0);
   assert.equal(s.lastRound.points, want);
   assert.equal(s.players[0].score, want);
-  assert.equal(s.lastRound.detail.find((d) => d.p === 1).pts, want);
+  for (const p of [1, 2, 3]) assert.equal(s.lastRound.detail.find((d) => d.p === p).pts, 250);
 });
 test('mercy: out players are skipped by turn order in both directions', () => {
   let s = nm({ hands: { 0: [card(1001, 'red', '3'), card(1002, 'red', '4'), card(1003, 'red', '6')] } });
@@ -1055,7 +1108,7 @@ function calloutScenario(extra, handFix) {
   const hands = {
     0: [card(1001, 'wild', 'wlc'), card(1002, 'red', '1'), card(1003, 'red', '2')],
     1: [card(1011, 'blue', '3'), card(1012, 'red', '4')],
-    2: [card(1021, 'green', '4'), card(1022, 'blue', '1')],
+    2: [card(1021, 'green', '4'), card(1022, 'yellow', '1')], // no blue: free to bluff when blue is called
     3: [card(1031, 'red', '6'), card(1032, 'green', '2')],
   };
   const s = lm(Object.assign({ hands: Object.assign(hands, handFix) }, extra));
@@ -1163,6 +1216,17 @@ test('liar Call-Out: players left with no cards win together and each scores the
   assert.equal(myHand(s, 2).length, 0);
 });
 
+test('liar Call-Out: holding the called color forces you to put one down; without it any card may go down', () => {
+  const s = calloutScenario({}, { 1: [card(1011, 'blue', '3'), card(1012, 'red', '4'), card(1013, 'wild', 'wlc')] });
+  mustOk(act(s, { p: 0, type: 'color', color: 'blue' }));
+  const v = E.view(s, 1);
+  assert.deepEqual(v.hand.filter((h) => h.playable).map((h) => h.id), [1011], 'only the blue card is marked');
+  mustNo(act(s, { p: 1, type: 'place', id: 1012 })); // red while holding blue
+  mustNo(act(s, { p: 1, type: 'place', id: 1013 })); // a wild is not "of that color"
+  mustOk(act(s, { p: 1, type: 'place', id: 1011 }));
+  assert.deepEqual(E.view(s, 2).hand.filter((h) => h.playable).map((h) => h.id).sort(), [1021, 1022], 'no blue: anything goes');
+  assert.deepEqual(E.view(s, 3).hand.filter((h) => h.playable), [], 'not your turn to place yet');
+});
 test('liar Call-Out: placing order follows a reversed direction and the turn passes the other way', () => {
   const s = calloutScenario({ dir: -1 });
   mustOk(act(s, { p: 0, type: 'color', color: 'blue' }));
@@ -1296,7 +1360,8 @@ function walkObj(x, path, f) {
     for (const k of Object.keys(x)) walkObj(x[k], path ? `${path}.${k}` : k, f);
   }
 }
-const FACE_OK = /^(top\.face|hand\[\d+\]\.face|claims\[\d+\]|pending\.claim|pending\.shown\[\d+\]\.face|players\[\d+\]\.backs\[\d+\]|drawBack)$/;
+// peek.cards: the official "show the challenger your hand" after a Wild Draw challenge; checked below to reach only them
+const FACE_OK = /^(top\.face|hand\[\d+\]\.face|claims\[\d+\]|pending\.claim|pending\.shown\[\d+\]\.face|players\[\d+\]\.backs\[\d+\]|drawBack|peek\.cards\[\d+\])$/;
 const BANNED = ['seed', 'legal', 'prevColor', 'prevClaim', 'draw', 'discard'];
 const PEND_KEYS = new Set(['type', 'p', 'from', 'v', 'reveal', 'id', 'claim', 'final', 'color', 'shown', 'placed', 'mine']);
 const SEEN = { drawnOwner: 0, drawnOther: 0, mine: 0, down: 0, claims: 0, shown: 0, backs: 0 };
@@ -1311,6 +1376,8 @@ function checkView(s, p) {
     if ('id' in o) assert.ok(/^hand\[\d+\]$/.test(path) || path === 'pending', `id leaked at ${path}`);
     if (typeof o.c === 'string' && typeof o.v === 'string') assert.ok(FACE_OK.test(path), `face object at ${path}`);
   });
+  if (s.peek && s.peek.p === p) assert.deepEqual(v.peek.cards, s.peek.cards);
+  else assert.equal(v.peek, null, 'only the challenger sees the challenged hand');
   const pd = s.pending, vp = v.pending;
   if (!pd) assert.equal(vp, null);
   else {
@@ -1454,4 +1521,136 @@ test('liar regression: a reshuffle while a face-down Wild Draw 4 awaits its colo
   assert.equal(s.color, 'red');
   assert.equal(allCards(s).length, total);
   assert.doesNotThrow(() => E.view(s, 2));
+});
+
+// ---------- official rule sheets, parameter by parameter ----------
+test('points: every card face in every mode matches the official scoring tables', () => {
+  const table = {
+    classic: { skip: 20, rev: 20, d2: 20, wild: 50, wd4: 50 },
+    flip: { d1: 10, d5: 20, rev: 20, skip: 20, flip: 20, skipall: 30, wild: 40, wd2: 50, wdc: 60 },
+    nomercy: { skip: 20, rev: 20, d2: 20, d4: 20, discall: 20, skipall: 20, wrd4: 50, wd6: 50, wd10: 50, roul: 50 },
+    liar: { skip: 20, rev: 20, d2: 20, wd4: 50, wlc: 50 },
+  };
+  for (const mode of Object.keys(table)) {
+    const s = game(mode);
+    const seen = new Set();
+    for (const side of mode === 'flip' ? ['light', 'dark'] : ['light']) {
+      s.side = side;
+      for (const c of allCards(s)) {
+        const f = face(s, c), want = /^\d$/.test(f.v) ? +f.v : table[mode][f.v];
+        assert.equal(points(s, c), want, `${mode} ${side} ${f.v}`);
+        seen.add(f.v);
+      }
+    }
+    for (const v of Object.keys(table[mode])) assert.ok(seen.has(v), `${mode} deck has ${v}`);
+  }
+});
+test('nomercy: a card drawn because nothing fit must be played ("Then, play that card")', () => {
+  const s = nm({ hands: { 0: [card(1001, 'blue', '9'), card(1002, 'blue', '8')] }, draw: [card(1100, 'red', '7'), card(1101, 'green', '1')] });
+  mustOk(act(s, { p: 0, type: 'draw' }));
+  assert.deepEqual([s.pending.type, s.pending.id], ['drawn', 1100]);
+  mustNo(act(s, { p: 0, type: 'keep' }));
+  assert.equal(E.botAction(s, 0).type === 'play' || E.botAction(s, 0).type === 'call', true);
+  mustOk(act(s, { p: 0, type: 'play', id: 1100 }));
+  assert.equal(top(s).id, 1100);
+});
+test('nomercy: going out on a draw card ends the round with no forced draw', () => {
+  const s = nm({ hands: { 0: [card(1001, 'red', 'd4')], 1: numHand(3, 2000) } });
+  s.stack = 6; s.stackMin = 2;
+  mustOk(act(s, { p: 0, type: 'play', id: 1001 }));
+  assert.ok(['roundOver', 'gameOver'].includes(s.phase));
+  assert.equal(s.players[1].hand.length, 3, 'nobody draws: the sheet only says the player wins');
+});
+test('nomercy: with two players left, Wild Reverse Draw 4 lands on whoever played it, who may stack it back', () => {
+  const s = nm({ hands: { 0: [card(1001, 'wild', 'wrd4'), card(1002, 'red', 'd4'), card(1003, 'red', '1')], 1: numHand(3, 2000) } });
+  for (const i of [2, 3]) Object.assign(s.players[i], { out: true, hand: [] });
+  mustOk(act(s, { p: 0, type: 'play', id: 1001 }));
+  mustOk(act(s, { p: 0, type: 'color', color: 'red' }));
+  assert.deepEqual([s.turn, s.stack, s.dir], [0, 4, -1], '"makes YOU draw 4 cards"');
+  mustOk(act(s, { p: 0, type: 'play', id: 1002 })); // stack a +4 to send it back
+  assert.deepEqual([s.turn, s.stack], [1, 8]);
+});
+test('flip: going out on Wild Draw Color still makes the next player draw to the chosen color', () => {
+  const s = setup(game('flip'), {
+    side: 'dark', topCard: fcard(900, 'red', '5', 'orange', '4'),
+    hands: { 0: [fcard(1001, 'wild', 'wd2', 'wild', 'wdc')], 1: [fcard(1010, 'blue', '1', 'pink', '1')] },
+    draw: [fcard(1100, 'red', '1', 'teal', '3'), fcard(1101, 'red', '2', 'orange', '2')],
+  });
+  mustOk(act(s, { p: 0, type: 'play', id: 1001 }));
+  assert.deepEqual([s.pending.type, s.pending.p, s.phase], ['color', 0, 'play']);
+  mustOk(act(s, { p: 0, type: 'color', color: 'teal' }));
+  assert.ok(['roundOver', 'gameOver'].includes(s.phase));
+  assert.deepEqual(ids(s.players[1].hand), [1010, 1101, 1100], 'drew orange 2, then teal 3');
+  assert.equal(s.lastRound.points, (1 + 2 + 3) + 2 * 4 * 9); // seat 1's three cards + seats 2-3: four teal 9s each
+});
+test('challenge: the challenger alone sees the challenged hand until their next move', () => {
+  const s = setup(game(), { hands: { 0: [card(1001, 'wild', 'wd4'), card(1002, 'red', '1'), card(1003, 'green', '2')] } });
+  mustOk(act(s, { p: 0, type: 'play', id: 1001 }));
+  mustOk(act(s, { p: 0, type: 'color', color: 'blue' }));
+  mustOk(act(s, { p: 1, type: 'challenge' })); // guilty: red 1 matched the red pile
+  const v1 = E.view(s, 1);
+  assert.deepEqual(v1.peek.cards.slice(0, 2), [{ c: 'red', v: '1' }, { c: 'green', v: '2' }]);
+  assert.equal(v1.peek.of, 0);
+  for (const p of [0, 2, 3]) assert.equal(E.view(s, p).peek, null);
+  assert.equal(s.turn, 1);
+  mustOk(act(s, { p: 1, type: 'draw' }));
+  assert.equal(E.view(s, 1).peek, null, 'gone after the challenger moves');
+});
+// Flip challenge penalties: Wild Draw 2 = 2 (guilty: offender takes them; innocent: challenger takes 2 + 2);
+// Wild Draw Color = draw to the color (innocent: to the color, then 2 more).
+function flipWild(v, holdsColor) {
+  const s = setup(game('flip'), {
+    topCard: fcard(900, 'red', '5', 'pink', '5'),
+    hands: { 0: [fcard(1001, 'wild', v, 'wild', 'wdc'), fcard(1002, holdsColor ? 'red' : 'blue', '1', 'teal', '1'), fcard(1003, 'green', '2', 'teal', '2')] },
+    draw: [...junk(game('flip'), 6), fcard(1100, 'red', '3', 'pink', '3'), fcard(1101, 'red', '4', 'pink', '4')],
+  });
+  mustOk(act(s, { p: 0, type: 'play', id: 1001 }));
+  mustOk(act(s, { p: 0, type: 'color', color: 'yellow' }));
+  return s;
+}
+test('flip: Wild Draw 2 accepted -> the next player draws 2 and is skipped', () => {
+  const s = flipWild('wd2', false);
+  mustOk(act(s, { p: 1, type: 'accept' }));
+  assert.deepEqual([s.players[1].hand.length, s.turn], [4 + 2, 2]);
+});
+test('flip: Wild Draw 2 challenged and guilty -> the player who played it draws 2; the challenger plays', () => {
+  const s = flipWild('wd2', true); // held a red card while red was in play
+  mustOk(act(s, { p: 1, type: 'challenge' }));
+  assert.deepEqual([s.players[0].hand.length, s.players[1].hand.length, s.turn], [2 + 2, 4, 1]);
+});
+test('flip: Wild Draw 2 challenged and innocent -> the challenger draws 2 + 2 and is skipped', () => {
+  const s = flipWild('wd2', false);
+  mustOk(act(s, { p: 1, type: 'challenge' }));
+  assert.deepEqual([s.players[0].hand.length, s.players[1].hand.length, s.turn], [2, 4 + 4, 2]);
+});
+test('flip: Wild Draw Color challenged and innocent -> the challenger draws to the color, then 2 more', () => {
+  const s = setup(game('flip'), {
+    side: 'dark', topCard: fcard(900, 'red', '5', 'orange', '4'),
+    hands: { 0: [fcard(1001, 'wild', 'wd2', 'wild', 'wdc'), fcard(1002, 'blue', '1', 'pink', '1'), fcard(1003, 'blue', '2', 'pink', '2')] },
+    draw: [...junk(game('flip'), 6), fcard(1100, 'x', '1', 'teal', '3'), fcard(1101, 'x', '1', 'orange', '2'), fcard(1102, 'x', '1', 'pink', '1')],
+  });
+  mustOk(act(s, { p: 0, type: 'play', id: 1001 }));
+  mustOk(act(s, { p: 0, type: 'color', color: 'teal' }));
+  mustOk(act(s, { p: 1, type: 'challenge' })); // innocent: no orange card in hand
+  assert.deepEqual(ids(s.players[1].hand.slice(4, 7)), [1102, 1101, 1100], 'drew to the first teal');
+  assert.equal(s.players[1].hand.length, 4 + 3 + 2);
+  assert.equal(s.turn, 2);
+});
+test('flip: Wild Draw Color challenged and guilty -> the player who played it draws to the color', () => {
+  const s = setup(game('flip'), {
+    side: 'dark', topCard: fcard(900, 'red', '5', 'orange', '4'),
+    hands: { 0: [fcard(1001, 'wild', 'wd2', 'wild', 'wdc'), fcard(1002, 'blue', '1', 'orange', '1'), fcard(1003, 'blue', '2', 'pink', '2')] },
+    draw: [...junk(game('flip'), 6), fcard(1100, 'x', '1', 'teal', '3'), fcard(1101, 'x', '1', 'orange', '2')],
+  });
+  mustOk(act(s, { p: 0, type: 'play', id: 1001 }));
+  mustOk(act(s, { p: 0, type: 'color', color: 'teal' }));
+  mustOk(act(s, { p: 1, type: 'challenge' })); // guilty: orange 1 matched the orange pile
+  assert.equal(s.players[0].hand.length, 2 + 2);
+  assert.equal(s.players[1].hand.length, 4);
+  assert.equal(s.turn, 1);
+});
+test('nomercy: Skip Everyone skips all the other players and you play again', () => {
+  const s = nm({ hands: { 0: [card(1001, 'red', 'skipall'), card(1002, 'red', '1'), card(1003, 'red', '2')] } });
+  mustOk(act(s, { p: 0, type: 'play', id: 1001 }));
+  assert.deepEqual([s.turn, s.pending, s.color], [0, null, 'red']);
 });

@@ -13,7 +13,7 @@ function mulberry(a) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-function env(delays) {
+function env(delays, seed = 12345) {
   const clock = { t: 100000 };
   let tid = 0;
   const timers = new Map(), inbox = new Map(), handlers = new Map(), dropped = [];
@@ -34,6 +34,7 @@ function env(delays) {
     msgs: (id, t) => (inbox.get(id) || []).filter((m) => !t || m.t === t),
   };
   e.room = Room.create({
+    seed, random: mulberry(seed ^ 0x5bd1e995), // reproducible deals and bot timing
     timers: { set: (fn, ms) => { const id = ++tid; timers.set(id, { at: clock.t + ms, fn }); return id; }, clear: (id) => { timers.delete(id); } },
     delays: delays || { bot: [20, 40], react: [20, 60] },
     now: () => clock.t,
@@ -101,10 +102,12 @@ function choose(R, rng) {
     }
     case 'drawn': {
       const c = v.hand.find((x) => x.id === pd.id);
-      if (c && c.playable && rng() < 0.5) return c.liar ? { type: 'play', id: c.id, claim: claimFor(c) } : { type: 'play', id: c.id };
+      // No Mercy: the drawn card must be played (official rule); elsewhere keeping it is allowed
+      if (c && c.playable && (v.mode === 'nomercy' || rng() < 0.5)) return c.liar ? { type: 'play', id: c.id, claim: claimFor(c) } : { type: 'play', id: c.id };
       return { type: 'keep' };
     }
-    case 'place': return { type: 'place', id: pick(v.hand).id };
+    // the view marks which cards may go down (a card of the called color whenever you hold one)
+    case 'place': return { type: 'place', id: pick(v.hand.filter((h) => h.playable)).id };
     case 'callout': {
       const open = pd.placed.map((b, i) => (b && !pd.shown[i] ? i : -1)).filter((i) => i >= 0);
       if (pd.shown.some(Boolean) && rng() < 0.4) return { type: 'stop' };
@@ -113,7 +116,7 @@ function choose(R, rng) {
   }
   return null;
 }
-const allCards = (s) => [...s.draw, ...s.discard, ...s.players.flatMap((p) => p.hand)];
+const allCards = (s) => [...s.draw, ...s.discard, ...(s.aside || []), ...s.players.flatMap((p) => p.hand)]; // aside: knocked-out hands (No Mercy)
 function invariants(s, total) {
   const all = allCards(s);
   assert.equal(all.length, total, 'card count constant');
@@ -420,7 +423,7 @@ test('game: disconnect mid-game makes the seat away and a bot plays it; the toke
   const e = env(), { room } = e;
   const a = remote(e, 'a', 'Ann'), b = remote(e, 'b', 'Bob');
   a.hello(); b.hello();
-  room.configure({ count: 4 });
+  room.configure({ count: 4, mode: 'nomercy' }); // No Mercy always opens on a number card, so seat 0 moves first
   room.start();
   const S = room.state, token = a.token;
   assert.equal(LC.actor(S), 0); // Ann is seat 0 and must move first
