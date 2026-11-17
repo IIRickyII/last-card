@@ -8,8 +8,10 @@
  *   send(connId, text)       deliver a JSON string to a remote player;  drop(connId): close that connection
  *   timers {set(fn, ms) -> id, clear(id)}, delays {bot:[min,max], react:[min,max]} ms, now() -> ms, seed, random() (tests inject)
  *
- * Lobby: room.settings {mode, target, count}; room.seats [{kind:'local'|'remote'|'bot', name, away}]
- *   configure({mode, target, count}), addLocal(name) -> seat, addBot(), removeSeat(i), start(), restart()
+ * Lobby: room.settings {mode, target, count}; room.seats [{kind:'local'|'remote'|'bot', name, away, auto?}]
+ *   configure({mode, target, count}), addLocal(name) -> seat, addBot(), removeSeat(i), start(), restart(), toLobby()
+ *   room.starter: the seat that plays first in the next game (null: a random seat); every later round and game
+ *   starts one seat on, so the deal goes round the table clockwise
  *   connect(connId) / disconnect(connId)  from the transport; receive(connId, text) for every remote message
  * Game: act(seat, action) for local seats, view(seat), lobby(seat), nextRound(), setPaused(bool), close(msg)
  *
@@ -79,7 +81,7 @@
     const conns = new Map(); // connId -> {hits, since, strikes}
     let botTimer = null, reactTimers = [], reactKey = '';
 
-    const room = { settings: { mode: 'classic', target: 500, count: 4 }, seats: [], state: null, paused: false, closed: false };
+    const room = { settings: { mode: 'classic', target: 500, count: 4 }, seats: [], state: null, paused: false, closed: false, starter: null };
 
     const random = opts.random || Math.random; // bot timing jitter (tests inject a seeded one)
     const rnd = ([a, b]) => a + random() * (b - a);
@@ -129,21 +131,39 @@
     room.start = () => {
       if (room.state || room.closed) return false;
       const n = Math.min(MAX_SEATS, Math.max(4, room.settings.count, room.seats.length));
-      while (room.seats.length < n) {
+      while (room.seats.length < n) { // auto: only fills a seat for this game, and leaves when the room goes back to the lobby
         const name = BOT_NAMES.find((b) => !room.seats.some((s) => s.name === b)) || 'Bot';
-        room.seats.push({ kind: 'bot', name: uniqueName(name), conn: null, token: null, away: false });
+        room.seats.push({ kind: 'bot', name: uniqueName(name), conn: null, token: null, away: false, auto: true });
       }
+      const first = Number.isInteger(room.starter) ? room.starter % n : Math.min(n - 1, Math.floor(random() * n));
       room.state = LC.newGame({
         mode: room.settings.mode, target: room.settings.target, seed: opts.seed, // unset in real games: random deal
-        players: room.seats.map((s) => ({ name: s.name, bot: s.kind === 'bot' })),
+        players: room.seats.map((s) => ({ name: s.name, bot: s.kind === 'bot' })), first,
       });
       changed();
       return true;
     };
+    // The next game starts one seat on from the last round's first player, as if it were the next round.
+    function passDeal() {
+      const S = room.state;
+      if (S) room.starter = (S.first + S.round) % S.players.length;
+    }
     room.restart = () => { // same seats and settings, fresh game
       stopTimers();
+      passDeal();
       room.state = null;
       return room.start();
+    };
+    // Back to the lobby with everyone still in the room: players keep their seats (an away one can still return with
+    // their token), the host can change the settings and seats, and new players can join before the next start.
+    room.toLobby = () => {
+      if (!room.state || room.closed) return false;
+      stopTimers();
+      passDeal();
+      room.state = null;
+      for (let i = room.seats.length - 1; i >= 0; i--) if (room.seats[i].auto) room.seats.splice(i, 1);
+      changed();
+      return true;
     };
 
     // ---------- transport ----------

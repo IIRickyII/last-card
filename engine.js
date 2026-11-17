@@ -3,8 +3,9 @@
  * Browser: <script src="engine.js"> exposes window.LastCard.  Node: require('./engine.js').
  *
  * API
- *   newGame({mode, players:[{name, bot}], target=500, seed?}) -> state
+ *   newGame({mode, players:[{name, bot}], target=500, seed?, first=0}) -> state
  *       mode: 'classic' | 'flip' | 'nomercy' | 'liar'; 4-8 players; target 0 = single round
+ *       first: the seat left of round 1's dealer (it plays first); each later round starts one seat on
  *   nextRound(state)            start the next round (only when state.phase === 'roundOver')
  *   actor(state)                index of the player who must act now (pending decision owner, else turn)
  *   act(state, action)          -> {ok:true} | {ok:false, error}; mutates state
@@ -29,7 +30,7 @@
  *   canPlay, playableIds, claimOptions, face, otherFace (flip only), top, colors, label, points, active, nextIdx
  *
  * State (engine-internal: send view() to players, never this)
- *   mode, target, round, phase: 'play' | 'roundOver' | 'gameOver'
+ *   mode, target, first, round, phase: 'play' | 'roundOver' | 'gameOver'
  *   side: 'light' | 'dark' (flip only changes it), dir: 1 | -1, turn
  *   color: active color (still the previous color while a 'color' / 'roulette' choice is pending)
  *   claim: what a face-down top card (Liar mode) claims to be, else null
@@ -182,11 +183,12 @@
   }
 
   // ---------- rounds ----------
-  function newGame({ mode = 'classic', players, target = 500, seed } = {}) {
+  function newGame({ mode = 'classic', players, target = 500, seed, first = 0 } = {}) {
     if (!MODES.includes(mode)) throw new Error('Unknown mode: ' + mode);
     if (!Array.isArray(players) || players.length < 4 || players.length > 8) throw new Error('Need 4-8 players');
     const s = {
       mode, target, round: 0, seq: 0, events: [],
+      first: Number.isInteger(first) && first >= 0 && first < players.length ? first : 0,
       seed: seed == null ? (Math.random() * 4294967296) >>> 0 : seed >>> 0,
       players: players.map((p, i) => ({ name: p.name || 'Player ' + (i + 1), bot: !!p.bot, hand: [], score: 0, out: false, called: false })),
     };
@@ -207,7 +209,7 @@
     s.draw = buildDeck(s);
     for (let r = 0; r < HAND_SIZE; r++) for (const pl of s.players) pl.hand.push(s.draw.pop());
     const n = s.players.length;
-    s.turn = (s.round - 1) % n; // the deal moves one seat each round; the dealer sits just before s.turn
+    s.turn = (s.first + s.round - 1) % n; // the deal moves one seat each round; the dealer sits just before s.turn
     log(s, 'round', s.turn, `Round ${s.round}: ${name(s, s.turn)} goes first`);
     openingCard(s, (s.turn - 1 + n) % n);
   }

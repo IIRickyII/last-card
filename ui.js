@@ -323,6 +323,15 @@ function startHosted() {
   if (!room.start()) { screen = 'lobby'; return; }
   render();
 }
+// After a game: the room goes back to the lobby with everyone in it; friends see the waiting room again.
+function backToLobby() {
+  if (!room || !settled()) return;
+  claimUI = null;
+  $('#toasts').replaceChildren(); // the game's last news would cover the lobby's top
+  screen = 'lobby';
+  if (!room.toLobby()) render(); // toLobby re-renders through onUpdate
+  window.scrollTo(0, 0);
+}
 
 // ---------- online: player ----------
 function joinGame(code, name) {
@@ -378,6 +387,7 @@ function joinGame(code, name) {
         const l = m.lobby;
         if (!l || typeof l !== 'object' || !Array.isArray(l.seats) || !l.settings || typeof l.settings !== 'object') return;
         lobbyData = l; pview = null;
+        if (screen === 'game') $('#toasts').replaceChildren(); // the host went back to the lobby after a game
         if (screen !== 'wait') go('wait'); else render();
       } else if (m.t === 'view') {
         if (!validHostView(m)) return;
@@ -861,7 +871,9 @@ function endSheet() {
   if (role === 'player') {
     btns.push(h('p', { class: 'waiting', role: 'status', text: 'Waiting for the host…' }), btn('Leave', () => openInfo('leave'), 'gray', { 'data-first': '1' }));
   } else if (over) {
-    btns.push(btn('Play again', () => { if (settled()) { claimUI = null; room.restart(); } }, 'filled', { 'data-first': '1' }), btn('Home', toHome, 'gray'));
+    btns.push(btn('Play again', () => { if (settled()) { claimUI = null; room.restart(); } }, 'filled', { 'data-first': '1' }));
+    if (role === 'host') btns.push(btn('Back to lobby', backToLobby, 'tinted'));
+    btns.push(btn('Home', toHome, 'gray'));
   } else {
     btns.push(btn('Next round', () => { if (settled()) room.nextRound(); }, 'filled', { 'data-first': '1' }));
   }

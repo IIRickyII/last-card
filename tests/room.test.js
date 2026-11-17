@@ -382,6 +382,7 @@ test('game: a remote can only act for its own seat; local act() refuses non-loca
   const a = remote(e, 'a', 'Ann'), b = remote(e, 'b', 'Bob');
   a.hello(); b.hello();
   room.configure({ count: 4, mode: 'classic' });
+  room.starter = 0;
   room.start();
   room.setPaused(true);
   const S = room.state;
@@ -423,7 +424,8 @@ test('game: disconnect mid-game makes the seat away and a bot plays it; the toke
   const e = env(), { room } = e;
   const a = remote(e, 'a', 'Ann'), b = remote(e, 'b', 'Bob');
   a.hello(); b.hello();
-  room.configure({ count: 4, mode: 'nomercy' }); // No Mercy always opens on a number card, so seat 0 moves first
+  room.configure({ count: 4, mode: 'nomercy' }); // No Mercy always opens on a number card, so the starter moves first
+  room.starter = 0;
   room.start();
   const S = room.state, token = a.token;
   assert.equal(LC.actor(S), 0); // Ann is seat 0 and must move first
@@ -528,6 +530,71 @@ test('game: nextRound only when the round is over; restart gives a fresh game wi
   assert.equal(room.state.round, 1);
   assert.equal(room.state.phase, 'play');
   assert.equal(room.state.players.every((p) => p.score === 0), true);
+});
+
+test('deal: a room\'s first game starts at a random seat; Play again starts one seat on from the last round', () => {
+  const firsts = new Set();
+  for (let seed = 1; seed <= 40; seed++) {
+    const { room } = env(null, seed);
+    room.configure({ count: 5, mode: 'nomercy' });
+    room.start();
+    firsts.add(room.state.first);
+    assert.equal(room.state.turn, room.state.first); // No Mercy always opens on a number card
+  }
+  assert.deepEqual([...firsts].sort(), [0, 1, 2, 3, 4], 'every seat can start the first game');
+  const { room } = env();
+  room.configure({ count: 4, mode: 'nomercy', target: 100000 });
+  room.start();
+  const f0 = room.state.first;
+  for (let r = 2; r <= 3; r++) { room.state.phase = 'roundOver'; room.nextRound(); }
+  assert.equal(room.state.turn, (f0 + 2) % 4);
+  room.state.phase = 'gameOver';
+  room.restart();
+  assert.equal(room.state.first, (f0 + 3) % 4);
+  assert.equal(room.state.turn, (f0 + 3) % 4);
+  room.restart(); // a game of one round passes the deal one seat
+  assert.equal(room.state.first, f0);
+});
+
+test('lobby: toLobby after a game keeps everyone in the room, lets fill-in bots go and carries the deal on', () => {
+  const e = env(), { room } = e;
+  room.addLocal('Host');
+  const a = remote(e, 'a', 'Ann'), b = remote(e, 'b', 'Bob');
+  a.hello(); b.hello();
+  room.addBot(); // a bot the host added stays
+  room.configure({ count: 6, mode: 'nomercy', target: 100000 });
+  assert.equal(room.toLobby(), false, 'no game yet');
+  room.start();
+  assert.equal(room.seats.filter((s) => s.auto).length, 2);
+  const f0 = room.state.first;
+  room.disconnect('b'); // Bob drops mid-game: his seat is kept
+  room.state.phase = 'gameOver';
+  assert.equal(room.toLobby(), true);
+  assert.equal(room.state, null);
+  assert.deepEqual(room.seats.map((s) => [s.kind, s.away]), [['local', false], ['remote', false], ['remote', true], ['bot', false]]);
+  assert.equal(room.settings.count, 6, 'the empty seats fill again at the next start');
+  assert.equal(a.lobby.started, false);
+  assert.deepEqual(a.lobby.seats.map((s) => s.name), ['Host', 'Ann', 'Bob', room.seats[3].name]);
+  const seq = e.updates;
+  e.advance(5000);
+  assert.equal(e.updates, seq, 'no bot acts in the lobby');
+  // a new friend can join, Bob can come back to his seat, and the host can change the game
+  const c = remote(e, 'c', 'Cy'); c.hello();
+  assert.equal(c.seat, 4);
+  const b2 = remote(e, 'b2', 'x', b.token); b2.hello();
+  assert.equal(b2.seat, 2);
+  assert.equal(room.seats[2].away, false);
+  assert.equal(room.removeSeat(3), true);
+  assert.equal(room.configure({ mode: 'classic' }), true);
+  // the next game starts one seat on from the last game's last round
+  assert.equal(room.start(), true);
+  assert.equal(room.state.mode, 'classic');
+  assert.equal(room.state.first, (f0 + 1) % 6);
+  assert.deepEqual(room.seats.map((s) => s.name).slice(0, 4), ['Host', 'Ann', 'Bob', 'Cy']);
+  assert.equal(c.view.round, 1);
+  assert.equal(b2.view.round, 1);
+  room.close();
+  assert.equal(room.toLobby(), false, 'a closed room stays closed');
 });
 
 test('game: pausing stops bots; unpausing resumes them; close() tells remotes and stops all timers', () => {
