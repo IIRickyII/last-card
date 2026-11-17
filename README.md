@@ -48,7 +48,7 @@ Where the published instruction sheets leave a case open, the game decides as fo
 - `room.js`: runs a game on the host's device, including bots, timing and checks on every message from players.
 - `net.js`: the WebRTC connection layer, using PeerJS.
 - `play.html`, `style.css`, `ui.js`: the game's interface. `cards.css`: the card art, shared with the site.
-- `index.html`, `site.css`, `assets/`, `media/`: the site. It is built on the design kit in `assets/`; every picture in `media/` is a capture of the real game or a render of its cards.
+- `index.html`, `site.css`, `site.js`, `assets/`, `media/`: the site. It is built on the design kit in `assets/`; every picture in `media/` is a capture of the real game or a render of its cards.
 - `tests/`: rules for every mode, hidden-information checks, malicious and malformed message tests, and full simulated games.
 
 ```bash
